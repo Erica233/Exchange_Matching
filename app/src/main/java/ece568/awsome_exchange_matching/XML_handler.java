@@ -3,6 +3,7 @@ package ece568.awsome_exchange_matching;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 import org.w3c.dom.traversal.DocumentTraversal;
 import org.w3c.dom.traversal.NodeFilter;
 import org.w3c.dom.traversal.TreeWalker;
@@ -11,6 +12,9 @@ import org.xml.sax.SAXException;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.*;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
@@ -20,7 +24,8 @@ import java.util.regex.Pattern;
 public class XML_handler implements Runnable{
     private final Socket clientSocket;
     public DocumentBuilderFactory factory;
-    private PostgresHandler myHandler = null;
+    private DocumentBuilder create_builder;
+    private Document create_doc;
     public XML_handler(Socket c) {
         clientSocket = c;
         factory = DocumentBuilderFactory.newInstance();
@@ -32,17 +37,42 @@ public class XML_handler implements Runnable{
             Document doc = builder.parse(is); //"scripts/testXML.xml"
             doc.getDocumentElement().normalize();
             System.out.println("Root element:" + doc.getDocumentElement().getNodeName());
+            //create result XML
+            //create documentBuilder
+            create_builder = factory.newDocumentBuilder();
+            //create document
+            create_doc = create_builder.newDocument();
+            //create root node
+            Element results = create_doc.createElement("results");
+            create_doc.appendChild(results);
+
             if (doc.getDocumentElement().getNodeName() == "create") {
-                parseCreate(doc, bufferedWriter);
+                parseCreate(doc, bufferedWriter, results);
             }
             else if (doc.getDocumentElement().getNodeName() == "transactions"){
                 parseTransaction(doc, bufferedWriter);
             }
+            //generate XML file
+            StringWriter writer = new StringWriter();
+            StreamResult result = new StreamResult(writer);
+            TransformerFactory tff = TransformerFactory.newInstance();
+            Transformer tf = tff.newTransformer();
+            //set change line
+            tf.setOutputProperty(OutputKeys.INDENT, "yes");
+            tf.transform(new DOMSource(create_doc), result);
+            //convert XML to string, send to client
+            bufferedWriter.write(writer.toString());
+            bufferedWriter.flush();
+
         }catch(ParserConfigurationException e){
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         } catch (SAXException e) {
+            e.printStackTrace();
+        } catch (TransformerConfigurationException e) {
+            e.printStackTrace();
+        } catch (TransformerException e) {
             e.printStackTrace();
         }
     }
@@ -51,11 +81,7 @@ public class XML_handler implements Runnable{
      * parse create XML
      * @param doc
      */
-    public void parseCreate(Document doc, BufferedWriter bufferedWriter) throws IOException, ParserConfigurationException {
-        //create result XML
-        DocumentBuilder create_builder = factory.newDocumentBuilder();
-        Document create_doc = create_builder.newDocument();
-        Element results = create_doc.createElement("results");
+    public void parseCreate(Document doc, BufferedWriter bufferedWriter, Element results ) throws IOException, ParserConfigurationException {
 
         DocumentTraversal traversal = (DocumentTraversal) doc;
         TreeWalker walker = traversal.createTreeWalker(
@@ -68,10 +94,10 @@ public class XML_handler implements Runnable{
                 case "#text":
                     break;
                 case "account":
-                    readAccount(n, bufferedWriter);
+                    readAccount(n, bufferedWriter, results);
                     break;
                 case "symbol":
-                    readSys(n, bufferedWriter);
+                    readSys(n, bufferedWriter, results);
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid node name: " + n.getNodeName());
@@ -114,49 +140,80 @@ public class XML_handler implements Runnable{
         }
     }
     //readers:
-    public void readAccount(Node p, BufferedWriter bufferedWriter) throws IOException {
-        myHandler = new accountCreateHandler(p);
+    public void readAccount(Node p, BufferedWriter bufferedWriter, Element results ) throws IOException {
+        accountCreateHandler myHandler = new accountCreateHandler(p);
         String isReadValid = myHandler.reader(p);
         if (isReadValid == null){
             String isImplementSuccess = myHandler.implementPSQL();
             if (isImplementSuccess == null){
                 //TODO: display on success
-                bufferedWriter.write("insert into account successfully\n");
-                bufferedWriter.flush();
+                Element create_account = create_doc.createElement("created");
+                create_account.setAttribute("id", myHandler.getAccountID());
+                results.appendChild(create_account);
                 return;
             }
             //TODO: display on failure
-            bufferedWriter.write("fail to insert element into table account: " +isImplementSuccess+"\n");
-            bufferedWriter.flush();
-            return;
+
+            Element create_account_fail = create_doc.createElement("error");
+            create_account_fail.setAttribute("id", myHandler.getAccountID());
+            String msg = "fail to insert element into table account: " +isImplementSuccess;
+            create_account_fail.setTextContent(msg);
+            results.appendChild(create_account_fail);
         } else{
             //TODO: display on failure
-            bufferedWriter.write("fail to read element from XML: "+isReadValid+"\n");
-            bufferedWriter.flush();
+            Element create_account_fail = create_doc.createElement("error");
+            create_account_fail.setAttribute("id", myHandler.getAccountID());
+            String msg = "fail to insert element into table account: " +isReadValid;
+            create_account_fail.setTextContent(msg);
+            results.appendChild(create_account_fail);
+        }
+        return;
+    }
+
+    public void readSys(Node p, BufferedWriter bufferedWriter, Element results ) throws IOException {
+        if (p.getNodeType() == Node.ELEMENT_NODE) {
+            Element sym = (Element) p;
+            String sym_name = sym.getAttribute("sym");
+            System.out.print("sym: " + sym_name + ", ");
+            NodeList Nums = sym.getChildNodes();
+            if (Nums != null && Nums.getLength() > 0) {
+                for (int j = 0; j < Nums.getLength(); j++) {
+                    Node a = Nums.item(j);
+                    if (a.getNodeName().equals("account")) {
+                        positionCreateHandler myHandler = new positionCreateHandler(a, sym_name);
+                        String isReadValid = myHandler.reader(a);
+                        if (isReadValid == null) {
+                            String isImplementSuccess = myHandler.implementPSQL();
+                            if (isImplementSuccess == null) {
+                                //TODO: display on success
+                                Element create_position = create_doc.createElement("created");
+                                create_position.setAttribute("sym", myHandler.getSym_name());
+                                create_position.setAttribute("id", myHandler.getAccountID());
+                                results.appendChild(create_position);
+                            } else {
+                                //TODO: display on failure
+                                Element create_position_fail = create_doc.createElement("error");
+                                create_position_fail.setAttribute("sym", myHandler.getSym_name());
+                                create_position_fail.setAttribute("id", myHandler.getAccountID());
+                                String msg = "fail to insert element into table position: " + isImplementSuccess;
+                                create_position_fail.setTextContent(msg);
+                                results.appendChild(create_position_fail);
+                            }
+                        } else {
+                            //TODO: display on failure
+                            Element create_position_fail = create_doc.createElement("error");
+                            create_position_fail.setAttribute("sym", myHandler.getSym_name());
+                            create_position_fail.setAttribute("id", myHandler.getAccountID());
+                            String msg = "fail to insert element into table position: " + isReadValid;
+                            create_position_fail.setTextContent(msg);
+                            results.appendChild(create_position_fail);
+                        }
+                    }
+                }
+            }
         }
     }
 
-    public void readSys(Node p, BufferedWriter bufferedWriter) throws IOException{
-        myHandler = new positionCreateHandler(p);
-        String isReadValid = myHandler.reader(p);
-        if (isReadValid == null){
-            String isImplementSuccess = myHandler.implementPSQL();
-            if (isImplementSuccess == null){
-                //TODO: display on success
-                bufferedWriter.write("insert into position successfully\n");
-                bufferedWriter.flush();
-                return;
-            }
-            //TODO: display on failure
-            bufferedWriter.write("fail to insert element into table position: " +isImplementSuccess+"\n");
-            bufferedWriter.flush();
-            return;
-        } else{
-            //TODO: display on failure
-            bufferedWriter.write("fail to read element from XML: "+isReadValid+"\n");
-            bufferedWriter.flush();
-        }
-    }
     public void readOrder(Node p){
         if (p.getNodeType() == Node.ELEMENT_NODE) {
             Element order = (Element) p;

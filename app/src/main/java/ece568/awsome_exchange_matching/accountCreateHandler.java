@@ -8,7 +8,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class accountCreateHandler implements PostgresHandler{
     protected PostgreSQLJDBC postgreJDBC = null;
     Node n;
-    private int accountID;
+    protected int accountID;
     private double balance;
     private static final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
 
@@ -22,6 +22,10 @@ public class accountCreateHandler implements PostgresHandler{
             System.err.println(e.getClass().getName() + ": " + e.getMessage());
             System.exit(0);
         }
+    }
+
+    public String getAccountID() {
+        return Integer.toString(accountID);
     }
 
     @Override
@@ -57,5 +61,4 @@ public class accountCreateHandler implements PostgresHandler{
             return output;
         }
     }
-
 }
