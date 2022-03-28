@@ -2,10 +2,7 @@ package ece568.awsome_exchange_matching;
 
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
 
-import java.sql.Array;
-import java.util.ArrayList;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class positionCreateHandler extends accountCreateHandler{

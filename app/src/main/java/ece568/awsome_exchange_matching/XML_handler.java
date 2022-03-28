@@ -94,10 +94,10 @@ public class XML_handler implements Runnable{
                 case "#text":
                     break;
                 case "account":
-                    readAccount(n, bufferedWriter, results);
+                    readAccount(n, results);
                     break;
                 case "symbol":
-                    readSys(n, bufferedWriter, results);
+                    readSys(n, results);
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid node name: " + n.getNodeName());
@@ -140,7 +140,7 @@ public class XML_handler implements Runnable{
         }
     }
     //readers:
-    public void readAccount(Node p, BufferedWriter bufferedWriter, Element results ) throws IOException {
+    public void readAccount(Node p, Element results ) {
         accountCreateHandler myHandler = new accountCreateHandler(p);
         String isReadValid = myHandler.reader(p);
         if (isReadValid == null){
@@ -153,24 +153,16 @@ public class XML_handler implements Runnable{
                 return;
             }
             //TODO: display on failure
+            handleCreateAccErr(myHandler, isImplementSuccess, results);
 
-            Element create_account_fail = create_doc.createElement("error");
-            create_account_fail.setAttribute("id", myHandler.getAccountID());
-            String msg = "fail to insert element into table account: " +isImplementSuccess;
-            create_account_fail.setTextContent(msg);
-            results.appendChild(create_account_fail);
         } else{
             //TODO: display on failure
-            Element create_account_fail = create_doc.createElement("error");
-            create_account_fail.setAttribute("id", myHandler.getAccountID());
-            String msg = "fail to insert element into table account: " +isReadValid;
-            create_account_fail.setTextContent(msg);
-            results.appendChild(create_account_fail);
+            handleCreateAccErr(myHandler, isReadValid, results);
         }
         return;
     }
 
-    public void readSys(Node p, BufferedWriter bufferedWriter, Element results ) throws IOException {
+    public void readSys(Node p, Element results ){
         if (p.getNodeType() == Node.ELEMENT_NODE) {
             Element sym = (Element) p;
             String sym_name = sym.getAttribute("sym");
@@ -192,27 +184,35 @@ public class XML_handler implements Runnable{
                                 results.appendChild(create_position);
                             } else {
                                 //TODO: display on failure
-                                Element create_position_fail = create_doc.createElement("error");
-                                create_position_fail.setAttribute("sym", myHandler.getSym_name());
-                                create_position_fail.setAttribute("id", myHandler.getAccountID());
-                                String msg = "fail to insert element into table position: " + isImplementSuccess;
-                                create_position_fail.setTextContent(msg);
-                                results.appendChild(create_position_fail);
+                                handleCreatePositErr(myHandler, isImplementSuccess, results);
                             }
                         } else {
                             //TODO: display on failure
-                            Element create_position_fail = create_doc.createElement("error");
-                            create_position_fail.setAttribute("sym", myHandler.getSym_name());
-                            create_position_fail.setAttribute("id", myHandler.getAccountID());
-                            String msg = "fail to insert element into table position: " + isReadValid;
-                            create_position_fail.setTextContent(msg);
-                            results.appendChild(create_position_fail);
+                            handleCreatePositErr(myHandler, isReadValid, results);
                         }
                     }
                 }
             }
         }
     }
+
+    private void handleCreatePositErr(positionCreateHandler myHandler, String err_msg, Element results){
+        Element create_position_fail = create_doc.createElement("error");
+        create_position_fail.setAttribute("sym", myHandler.getSym_name());
+        create_position_fail.setAttribute("id", myHandler.getAccountID());
+        String msg = "fail to insert element into table position: " + err_msg;
+        create_position_fail.setTextContent(msg);
+        results.appendChild(create_position_fail);
+    }
+
+    private void handleCreateAccErr(accountCreateHandler myHandler, String err_msg, Element results){
+        Element create_account_fail = create_doc.createElement("error");
+        create_account_fail.setAttribute("id", myHandler.getAccountID());
+        String msg = "fail to insert element into table position: " + err_msg;
+        create_account_fail.setTextContent(msg);
+        results.appendChild(create_account_fail);
+    }
+
 
     public void readOrder(Node p){
         if (p.getNodeType() == Node.ELEMENT_NODE) {
