@@ -184,15 +184,40 @@ public class PostgreSQLJDBC {
         c = DriverManager.getConnection(url, user, password);
         c.setAutoCommit(false);
         stmt = c.createStatement();
-        String selectSql = "SELECT TRANSACTION_ID, STATUS, AMOUNT, TIME, PRICE FROM ORDERS " +
-                "WHERE TRANSACTION_ID=" + trans_id + " AND STATUS=OPEN;";
+        //check if the cancellation operation is valid
+        String selectSql = "SELECT ACCOUNT.ID, ACCOUNT.BALANCE, POSITION.AMOUNT, " +
+                "ORDERS.AMOUNT, ORDERS.SYMBOL, ORDERS.AMOUNT, ORDERS.PRICE FROM ACCOUNT, POSITION, ORDERS " +
+                "WHERE TRANSACTION_ID=" + trans_id + " AND STATUS=OPEN " +
+                "AND ACCOUNT.ID=ORDERS.ACCOUNT_ID AND ACCOUNT.ID=POSITION.ACCOUNT_ID;";
         ResultSet rs = stmt.executeQuery(selectSql);
+        String accountId = rs.getString("ACCOUNT.ID");
+        double balance = rs.getDouble("ACCOUNT.BALANCE");
+        double positionAmount = rs.getDouble("POSITION.AMOUNT");
+        double ordersAmount = rs.getDouble("ORDERS.AMOUNT");
+        String symbol = rs.getString("ORDERS.SYMBOL");
+        double price = rs.getDouble("ORDERS.PRICE");
         if (rs.next()) {
             //invalid cancellation: no open portion of this transaction_id
+        } else {
+            // in table 'orders': change status
+            String updateOrdersSql = "UPDATE ORDERS SET STATE = CANCELED " +
+                    "WHERE TRANSACTION_ID=" + trans_id + ";";
+            stmt.executeUpdate(updateOrdersSql);
+
+            // in table 'account' and 'position':
+            if (ordersAmount < 0) {
+                // if cancel a sell order: give back seller's shares
+                String updatePositionSql = "UPDATE POSITION SET AMOUNT = " + (positionAmount + ordersAmount) +
+                        "WHERE SYMBOL=\'" + symbol + "\' AND ACCOUNT_ID=\'"+ accountId +"\';";
+                stmt.executeUpdate(updatePositionSql);
+            } else {
+                // if cancel a buy order: refunds buyer's account
+                double refunds = ordersAmount * price;
+                String updateAccountSql = "UPDATE ACCOUNT SET BALANCE= "+ ordersAmount * price +
+                        "WHERE ID=\'" + accountId + "\';";
+                stmt.executeUpdate(updateAccountSql);
+            }
         }
-        String updateSql = "UPDATE ORDERS SET STATE = CANCELED " +
-                "WHERE TRANSACTION_ID=" + trans_id + ";";
-        stmt.executeUpdate(updateSql);
         c.commit();
         stmt.close();
         c.close();
