@@ -1,9 +1,7 @@
 package ece568.awsome_exchange_matching;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class PostgreSQLJDBC {
     private static PostgreSQLJDBC postgreJDBC = null;
@@ -126,14 +124,27 @@ public class PostgreSQLJDBC {
     }
 
     public void populatePosition(String Symbol, String accountID, String amt) throws SQLException {
+
         c = DriverManager
                 .getConnection(url, user, password);
         c.setAutoCommit(false);
         stmt = c.createStatement();
-        String sql = "INSERT INTO POSITION (SYMBOL, AMOUNT, ACCOUNT_ID) VALUES (\'" + Symbol +
-                "\', " + amt + ", \'"+ accountID +"\'" + ");";
-        stmt.executeUpdate(sql);
-        System.out.println("insert elem into table POSITION successfully");
+        ResultSet rs = stmt.executeQuery( "SELECT * FROM POSITION WHERE" +
+                " SYMBOL = \'"+ Symbol +"\' AND ACCOUNT_ID = \'" + accountID+"\';" );
+        if (!rs.next()) {
+            String sql = "INSERT INTO POSITION (SYMBOL, AMOUNT, ACCOUNT_ID) VALUES (\'" + Symbol +
+                    "\', " + amt + ", \'" + accountID + "\'" + ");";
+            stmt.executeUpdate(sql);
+            System.out.println("insert elem into table POSITION successfully");
+        }
+        //if rs is not empty
+        else{
+            String sql = "UPDATE POSITION SET AMOUNT = AMOUNT +" + amt +
+                    "WHERE" +
+                    " SYMBOL = \'"+ Symbol +"\' AND ACCOUNT_ID = \'" + accountID+"\';";
+            stmt.executeUpdate(sql);
+            System.out.println("update table POSITION successfully");
+        }
         stmt.close();
         c.commit();
         c.close();

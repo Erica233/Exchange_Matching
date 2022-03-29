@@ -50,7 +50,7 @@ public class XML_handler implements Runnable{
                 parseCreate(doc, bufferedWriter, results);
             }
             else if (doc.getDocumentElement().getNodeName() == "transactions"){
-                parseTransaction(doc, bufferedWriter);
+                parseTransaction(doc, bufferedWriter, results);
             }
             //generate XML file
             StringWriter writer = new StringWriter();
@@ -109,7 +109,7 @@ public class XML_handler implements Runnable{
      * parse transaction XML
      * @param doc
      */
-    public void parseTransaction(Document doc, BufferedWriter bufferedWriter){
+    public void parseTransaction(Document doc, BufferedWriter bufferedWriter, Element results){
         String id = doc.getDocumentElement().getAttribute("id");
         System.out.println("id: "+id);
         DocumentTraversal traversal = (DocumentTraversal) doc;
@@ -129,10 +129,10 @@ public class XML_handler implements Runnable{
                     readOrder(n);
                     break;
                 case "query":
-                    readQuery(n);
+                    readQuery(n, results);
                     break;
                 case "cancel":
-                    readCancel(n);
+                    readCancel(n, results);
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid node name: " + n.getNodeName());
@@ -224,7 +224,7 @@ public class XML_handler implements Runnable{
         }
     }
 
-    public void readQuery(Node p){
+    public void readQuery(Node p, Element results){
         if (p.getNodeType() == Node.ELEMENT_NODE) {
             Element query = (Element) p;
             String transID = query.getAttribute("id");
@@ -232,7 +232,7 @@ public class XML_handler implements Runnable{
         }
     }
 
-    public void readCancel(Node p){
+    public void readCancel(Node p, Element results){
         if (p.getNodeType() == Node.ELEMENT_NODE) {
             Element cancel = (Element) p;
             String transID = cancel.getAttribute("id");
@@ -272,46 +272,37 @@ public class XML_handler implements Runnable{
         try {
             // get the outputstream of client
             //out = new PrintWriter(clientSocket.getOutputStream(), true);
-            OutputStream outputStream = clientSocket.getOutputStream();
-            OutputStreamWriter outputStreamWriter = new OutputStreamWriter(outputStream);
-            BufferedWriter bufferedWriter = new BufferedWriter(outputStreamWriter);
+            while(true) {
+                OutputStream outputStream = clientSocket.getOutputStream();
+                OutputStreamWriter outputStreamWriter = new OutputStreamWriter(outputStream);
+                BufferedWriter bufferedWriter = new BufferedWriter(outputStreamWriter);
 
-            // get the inputstream of client
-            in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-            String tempString = null;
-            int line = 1;
-            // read by line until null
-            while ((tempString = in.readLine()) != null) {
-                // display line index
-                System.out.println("line " + line + ": " + tempString);
-                boolean isMatch_transaction = Pattern.matches("</transactions>(.|\\s)*$", tempString);
-                boolean isMatch_create = Pattern.matches("</create>(.|\\s)*$", tempString);
-                content = content + tempString;
-                if (isMatch_transaction || isMatch_create){
-                    break;
+                // get the inputstream of client
+                in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                String tempString = null;
+                int line = 1;
+                // read by line until null
+                while ((tempString = in.readLine()) != null) {
+                    // display line index
+                    System.out.println("line " + line + ": " + tempString);
+                    boolean isMatch_transaction = Pattern.matches("</transactions>(.|\\s)*$", tempString);
+                    boolean isMatch_create = Pattern.matches("</create>(.|\\s)*$", tempString);
+                    content = content + tempString;
+                    if (isMatch_transaction || isMatch_create) {
+                        break;
+                    }
+                    line++;
                 }
-                line++;
-            }
 
-            System.out.printf(" Sent from the client: %s\n",
-                    content);
-            bufferedWriter.write(content + "\n");
-            bufferedWriter.flush();
-            String xml = filterBlankXMl(content);
-            inStream = new ByteArrayInputStream(
-                    xml.getBytes(StandardCharsets.UTF_8));
-            getXML(inStream, bufferedWriter );
-            inStream.close();
-
-            /*
-            while ((line = in.readLine()) != null) {
-                // writing the received message from
-                // client
                 System.out.printf(" Sent from the client: %s\n",
-                        line);
-                out.println(line);
+                        content);
+
+                String xml = filterBlankXMl(content);
+                inStream = new ByteArrayInputStream(
+                        xml.getBytes(StandardCharsets.UTF_8));
+                getXML(inStream, bufferedWriter);
+                inStream.close();
             }
-            */
         }
         catch (IOException e) {
             e.printStackTrace();

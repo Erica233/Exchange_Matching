@@ -7,8 +7,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class positionCreateHandler extends accountCreateHandler{
     private String sym_name;
-    private double amount;
-    private static final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
+    private String amount;
 
     public positionCreateHandler(Node _n, String _sym_name) {
         super(_n);
@@ -26,9 +25,9 @@ public class positionCreateHandler extends accountCreateHandler{
             try {
                 Element account = (Element) n;
                 String ID = account.getAttribute("id");
-                accountID = Integer.parseInt(ID);
+                accountID = ID;
                 String NUM = account.getTextContent();
-                amount = Double.parseDouble(NUM);
+                amount = NUM;
                 System.out.println("Account ID: " + ID + ", NUM: " + NUM);
             }catch(Exception e){
                 output = e.getMessage();
@@ -42,14 +41,11 @@ public class positionCreateHandler extends accountCreateHandler{
 
     @Override
     public String implementPSQL() {
-        //populatePosition(String Symbol, String accountID, String amt)
         String output = null;
         try {
-            lock.writeLock().lock();
             postgreJDBC.populatePosition(sym_name,
-                    Integer.toString(accountID),
-                    Double.toString(amount));
-            lock.writeLock().unlock();
+                    accountID,
+                    amount);
         }catch(Exception e){
             output = e.getMessage();
         }finally{
