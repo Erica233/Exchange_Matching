@@ -154,8 +154,8 @@ public class PostgreSQLJDBC {
         c.setAutoCommit(false);
         stmt = c.createStatement();
         String sql = "INSERT INTO ORDERS (TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE) " +
-                "VALUES (CURRENT_TIMESTAMP, \'" + symbol + "\', " + amount + ", \'" +
-                accountId + "\', " + limit + ");";
+                "VALUES (CURRENT_TIMESTAMP, '" + symbol + "', " + amount + ", '" +
+                accountId + "', " + limit + ");";
         stmt.executeUpdate(sql);
         System.out.println("insert elem into table ORDERS successfully");
         stmt.close();
@@ -208,13 +208,12 @@ public class PostgreSQLJDBC {
             if (ordersAmount < 0) {
                 // if cancel a sell order: give back seller's shares
                 String updatePositionSql = "UPDATE POSITION SET AMOUNT = " + (positionAmount + ordersAmount) +
-                        "WHERE SYMBOL=\'" + symbol + "\' AND ACCOUNT_ID=\'"+ accountId +"\';";
+                        "WHERE SYMBOL='" + symbol + "' AND ACCOUNT_ID='"+ accountId +"';";
                 stmt.executeUpdate(updatePositionSql);
             } else {
                 // if cancel a buy order: refunds buyer's account
-                double refunds = ordersAmount * price;
-                String updateAccountSql = "UPDATE ACCOUNT SET BALANCE= "+ ordersAmount * price +
-                        "WHERE ID=\'" + accountId + "\';";
+                String updateAccountSql = "UPDATE ACCOUNT SET BALANCE= "+ (balance + ordersAmount * price) +
+                        "WHERE ID='" + accountId + "';";
                 stmt.executeUpdate(updateAccountSql);
             }
         }
