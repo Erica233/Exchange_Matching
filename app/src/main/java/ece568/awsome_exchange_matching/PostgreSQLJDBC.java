@@ -5,6 +5,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.ResultSet;
+import java.util.ArrayList;
 
 public class PostgreSQLJDBC {
     private static PostgreSQLJDBC postgreJDBC = null;
@@ -141,18 +142,37 @@ public class PostgreSQLJDBC {
         c.close();
     }
 
-    /**
-     * insert transactions
-     * @param accountId
-     * @param symbol
-     * @param amount
-     * @param limit
-     * @throws SQLException
-     */
     public void populateOrder(String accountId, String symbol, String amount, String limit) throws SQLException {
         c = DriverManager.getConnection(url, user, password);
         c.setAutoCommit(false);
         stmt = c.createStatement();
+
+        // first check if any matched orders
+        // if has, find the matched orders and update
+        double amount_double = Double.parseDouble(amount);
+        double limit_double = Double.parseDouble(limit);
+        String checkSql;
+        //sell
+        if (amount_double < 0) {
+            checkSql = "SELECT * FROM ORDERS " +
+                    "WHERE SYMBOL='" + symbol + "' AND PRICE>=" + limit_double +
+                    " ORDER BY -PRICE AND TIME;";
+        } else {
+            //buy
+            checkSql = "SELECT * FROM ORDERS " +
+                    "WHERE SYMBOL='" + symbol + "' AND PRICE<=" + limit_double +
+                    " ORDER BY PRICE AND TIME;";
+        }
+        ResultSet rs = stmt.executeQuery(checkSql);
+        while (rs.next() && amount_double != 0) {
+            int transaction_id = rs.getInt("transaction_id");
+            double curr_amount = rs.getDouble("amount");
+            double curr_limit = rs.getDouble("price");
+
+            String executeSql = "";
+
+        }
+        // if not, directly insert
         String sql = "INSERT INTO ORDERS (TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE) " +
                 "VALUES (CURRENT_TIMESTAMP, '" + symbol + "', " + amount + ", '" +
                 accountId + "', " + limit + ");";
@@ -167,20 +187,27 @@ public class PostgreSQLJDBC {
 
     }
 
-    public void queryTransaction(String trans_id) throws SQLException {
+    public ArrayList<Transaction> queryTransaction(String trans_id) throws SQLException {
         c = DriverManager.getConnection(url, user, password);
         c.setAutoCommit(false);
         stmt = c.createStatement();
         String sql = "SELECT TRANSACTION_ID, STATUS, AMOUNT, TIME, PRICE FROM ORDERS " +
                 "WHERE TRANSACTION_ID=" + trans_id + ";";
         ResultSet rs = stmt.executeQuery(sql);
-
+        ArrayList<Transaction> outputs = new ArrayList<Transaction>();
+        while (rs.next()) {
+            Transaction tran = new Transaction(rs.getInt("TRANSACTION_ID"),
+                    rs.getString("STATUS"), rs.getDouble("AMOUNT"),
+                    rs.getTimestamp("TIME"), rs.getDouble("PRICE"));
+            outputs.add(tran);
+        }
         rs.close();
         stmt.close();
         c.close();
+        return outputs;
     }
 
-    public void cancelTransaction(String trans_id) throws SQLException {
+    public void cancelTransaction(String trans_id) throws SQLException, IllegalArgumentException {
         c = DriverManager.getConnection(url, user, password);
         c.setAutoCommit(false);
         stmt = c.createStatement();
@@ -196,8 +223,9 @@ public class PostgreSQLJDBC {
         double ordersAmount = rs.getDouble("ORDERS.AMOUNT");
         String symbol = rs.getString("ORDERS.SYMBOL");
         double price = rs.getDouble("ORDERS.PRICE");
-        if (rs.next()) {
+        if (!rs.next()) {
             //invalid cancellation: no open portion of this transaction_id
+            throw new IllegalArgumentException("invalid cancellation: no open portion of this transaction_id");
         } else {
             // in table 'orders': change status
             String updateOrdersSql = "UPDATE ORDERS SET STATE = CANCELED " +
