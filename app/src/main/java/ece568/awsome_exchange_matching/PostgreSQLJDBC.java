@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.ResultSet;
 
 public class PostgreSQLJDBC {
     private static PostgreSQLJDBC postgreJDBC = null;
@@ -92,12 +93,13 @@ public class PostgreSQLJDBC {
 
         String sql3 = "CREATE TABLE IF NOT EXISTS ORDERS"+
                 "(ID SERIAL PRIMARY KEY    NOT NULL,"+
-                "TRANSACTION_ID INT        NOT NULL,"+
+                "TRANSACTION_ID SERIAL     NOT NULL,"+
+                "TIME TIMESTAMP            NOT NULL,"+
                 "SYMBOL VARCHAR(255)       NOT NULL,"+
                 "AMOUNT NUMERIC            NOT NULL,"+
                 "ACCOUNT_ID VARCHAR(25)    NOT NULL     CHECK(ACCOUNT_ID ~ '^[0-9]*$'),"+
                 "PRICE NUMERIC             NOT NULL,"+
-                "STATE VARCHAR(255)        NOT NULL DEFAULT \'OPEN\',"+
+                "STATUS VARCHAR(255)       NOT NULL DEFAULT \'OPEN\',"+
                 "CONSTRAINT FK_ORDER FOREIGN KEY(ACCOUNT_ID) \n" +
                 "   REFERENCES ACCOUNT(ID)\n" +
                 "   ON DELETE CASCADE\n" +
@@ -139,4 +141,60 @@ public class PostgreSQLJDBC {
         c.close();
     }
 
+    /**
+     * insert transactions
+     * @param accountId
+     * @param symbol
+     * @param amount
+     * @param limit
+     * @throws SQLException
+     */
+    public void populateOrder(String accountId, String symbol, String amount, String limit) throws SQLException {
+        c = DriverManager.getConnection(url, user, password);
+        c.setAutoCommit(false);
+        stmt = c.createStatement();
+        String sql = "INSERT INTO ORDERS (TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE) " +
+                "VALUES (CURRENT_TIMESTAMP, \'" + symbol + "\', " + amount + ", \'" +
+                accountId + "\', " + limit + ");";
+        stmt.executeUpdate(sql);
+        System.out.println("insert elem into table ORDERS successfully");
+        stmt.close();
+        c.commit();
+        c.close();
+    }
+
+    public void checkMatchOrders() throws SQLException {
+
+    }
+
+    public void queryTransaction(String trans_id) throws SQLException {
+        c = DriverManager.getConnection(url, user, password);
+        c.setAutoCommit(false);
+        stmt = c.createStatement();
+        String sql = "SELECT TRANSACTION_ID, STATUS, AMOUNT, TIME, PRICE FROM ORDERS " +
+                "WHERE TRANSACTION_ID=" + trans_id + ";";
+        ResultSet rs = stmt.executeQuery(sql);
+
+        rs.close();
+        stmt.close();
+        c.close();
+    }
+
+    public void cancelTransaction(String trans_id) throws SQLException {
+        c = DriverManager.getConnection(url, user, password);
+        c.setAutoCommit(false);
+        stmt = c.createStatement();
+        String selectSql = "SELECT TRANSACTION_ID, STATUS, AMOUNT, TIME, PRICE FROM ORDERS " +
+                "WHERE TRANSACTION_ID=" + trans_id + " AND STATUS=OPEN;";
+        ResultSet rs = stmt.executeQuery(selectSql);
+        if (rs.next()) {
+            //invalid cancellation: no open portion of this transaction_id
+        }
+        String updateSql = "UPDATE ORDERS SET STATE = CANCELED " +
+                "WHERE TRANSACTION_ID=" + trans_id + ";";
+        stmt.executeUpdate(updateSql);
+        c.commit();
+        stmt.close();
+        c.close();
+    }
 }
