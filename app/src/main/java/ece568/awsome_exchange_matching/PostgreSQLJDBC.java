@@ -183,6 +183,8 @@ public class PostgreSQLJDBC {
                         accountId + "', " + curr_limit + ", EXECUTED);";
                 stmt.executeUpdate(insertSql);
                 amount_double += curr_amount;
+                // update account and position
+
             } else {
                 String executeSql = "UPDATE ORDERS SET AMOUNT=" + (curr_amount + amount_double) +
                         " WHERE ID=" + id + ";";
@@ -196,6 +198,8 @@ public class PostgreSQLJDBC {
                         accountId + "', " + curr_limit + ", EXECUTED);";
                 stmt.executeUpdate(insertSql2);
                 amount_double = 0;
+                // update account and position
+
             }
         }
         // if left any unmatched portion, insert a new order
