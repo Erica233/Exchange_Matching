@@ -147,37 +147,66 @@ public class PostgreSQLJDBC {
         c.setAutoCommit(false);
         stmt = c.createStatement();
 
+        // get next transaction id
+        String getSql = "SELECT TRANSACTION_ID FROM ORDERS ORDER BY -ID LIMIT 1;";
+        ResultSet rs_id = stmt.executeQuery(getSql);
+        int new_id = rs_id.getInt("TRANSACTION_ID") + 1;
+
         // first check if any matched orders
-        // if has, find the matched orders and update
         double amount_double = Double.parseDouble(amount);
         double limit_double = Double.parseDouble(limit);
         String checkSql;
         //sell
         if (amount_double < 0) {
             checkSql = "SELECT * FROM ORDERS " +
-                    "WHERE SYMBOL='" + symbol + "' AND PRICE>=" + limit_double +
-                    " ORDER BY -PRICE AND TIME;";
+                    "WHERE SYMBOL='" + symbol + "' AND PRICE<=" + limit_double +
+                    " ORDER BY PRICE AND TIME;";
         } else {
             //buy
             checkSql = "SELECT * FROM ORDERS " +
-                    "WHERE SYMBOL='" + symbol + "' AND PRICE<=" + limit_double +
-                    " ORDER BY PRICE AND TIME;";
+                    "WHERE SYMBOL='" + symbol + "' AND PRICE>=" + limit_double +
+                    " ORDER BY -PRICE AND TIME;";
         }
         ResultSet rs = stmt.executeQuery(checkSql);
+        // if has matched orders, find the matched orders and execute
         while (rs.next() && amount_double != 0) {
+            int id = rs.getInt("ID");
             int transaction_id = rs.getInt("transaction_id");
             double curr_amount = rs.getDouble("amount");
             double curr_limit = rs.getDouble("price");
-
-            String executeSql = "";
-
+            if (-amount_double >= curr_amount) {
+                // executed portion, and update original
+                String executeSql = "UPDATE ORDERS SET STATE=EXECUTED WHERE ID=" + id + ";";
+                stmt.executeUpdate(executeSql);
+                String insertSql = "INSERT INTO ORDERS (TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE, STATUS) " +
+                        "VALUES (CURRENT_TIMESTAMP, '" + symbol + "', " + (-curr_amount) + ", '" +
+                        accountId + "', " + curr_limit + ", EXECUTED);";
+                stmt.executeUpdate(insertSql);
+                amount_double += curr_amount;
+            } else {
+                String executeSql = "UPDATE ORDERS SET AMOUNT=" + (curr_amount + amount_double) +
+                        " WHERE ID=" + id + ";";
+                stmt.executeUpdate(executeSql);
+                String insertSql = "INSERT INTO ORDERS (TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE, STATUS) " +
+                        "VALUES (CURRENT_TIMESTAMP, '" + symbol + "', " + (-amount_double) + ", '" +
+                        accountId + "', " + curr_limit + ", EXECUTED);";
+                stmt.executeUpdate(insertSql);
+                String insertSql2 = "INSERT INTO ORDERS (TRANSACTION_ID, TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE, STATUS) " +
+                        "VALUES (" + new_id + ", CURRENT_TIMESTAMP, '" + symbol + "', " + amount_double + ", '" +
+                        accountId + "', " + curr_limit + ", EXECUTED);";
+                stmt.executeUpdate(insertSql2);
+                amount_double = 0;
+            }
         }
-        // if not, directly insert
-        String sql = "INSERT INTO ORDERS (TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE) " +
-                "VALUES (CURRENT_TIMESTAMP, '" + symbol + "', " + amount + ", '" +
-                accountId + "', " + limit + ");";
-        stmt.executeUpdate(sql);
-        System.out.println("insert elem into table ORDERS successfully");
+        // if left any unmatched portion, insert a new order
+        if (amount_double != 0) {
+            String sql = "INSERT INTO ORDERS (TRANSACTION_ID, TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE) " +
+                    "VALUES (" + new_id + ", CURRENT_TIMESTAMP, '" + symbol + "', " + amount_double + ", '" +
+                    accountId + "', " + limit + ");";
+            stmt.executeUpdate(sql);
+        }
+        rs.close();
+        rs_id.close();
         stmt.close();
         c.commit();
         c.close();
