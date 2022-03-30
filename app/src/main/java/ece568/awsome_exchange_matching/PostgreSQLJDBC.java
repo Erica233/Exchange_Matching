@@ -1,10 +1,6 @@
 package ece568.awsome_exchange_matching;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.sql.ResultSet;
+import java.sql.*;
 import java.util.ArrayList;
 
 public class PostgreSQLJDBC {
@@ -253,6 +249,7 @@ public class PostgreSQLJDBC {
             throw new IllegalArgumentException("invalid cancellation: transaction_id is not existed!\n");
         }
         while (rs.next()) {
+            int transaction_id = rs.getInt("ORDERS.TRANSACTION_ID");
             String status = rs.getString("ORDERS.STATUS");
             int id = rs.getInt("ORDERS.ID");
             String accountId = rs.getString("ACCOUNT.ID");
@@ -261,17 +258,15 @@ public class PostgreSQLJDBC {
             double ordersAmount = rs.getDouble("ORDERS.AMOUNT");
             String symbol = rs.getString("ORDERS.SYMBOL");
             double price = rs.getDouble("ORDERS.PRICE");
+            Timestamp time = rs.getTimestamp("ORDERS.TIME");
 
             if (rs.isFirst()) {
                 if (status != "OPEN") {
                     throw new IllegalArgumentException("invalid cancellation: no open orders in this transaction id!\n");
                 }
-                outputs.add(new Transaction(rs.getInt("ORDERS.TRANSACTION_ID"),
-                        "CANCELED", rs.getDouble("ORDERS.AMOUNT"),
-                        rs.getTimestamp("ORDERS.TIME"), rs.getDouble("ORDERS.PRICE")));
+                outputs.add(new Transaction(transaction_id, "CANCELED", ordersAmount, time, price));
                 // in table 'orders': change status
-                String updateOrdersSql = "UPDATE ORDERS SET STATE = CANCELED " +
-                        "WHERE ID=" + id + ";";
+                String updateOrdersSql = "UPDATE ORDERS SET STATE = CANCELED WHERE ID=" + id + ";";
                 stmt.executeUpdate(updateOrdersSql);
                 // in table 'account' and 'position':
                 if (ordersAmount < 0) {
@@ -286,13 +281,9 @@ public class PostgreSQLJDBC {
                     stmt.executeUpdate(updateAccountSql);
                 }
             } else {
-                outputs.add(new Transaction(rs.getInt("ORDERS.TRANSACTION_ID"),
-                        rs.getString("ORDERS.STATUS"), rs.getDouble("ORDERS.AMOUNT"),
-                        rs.getTimestamp("ORDERS.TIME"), rs.getDouble("ORDERS.PRICE")));
+                outputs.add(new Transaction(transaction_id, status, ordersAmount, time, price));
             }
-
         }
-
         c.commit();
         stmt.close();
         c.close();
