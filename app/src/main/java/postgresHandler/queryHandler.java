@@ -1,17 +1,20 @@
-package ece568.awsome_exchange_matching;
+package postgresHandler;
 
+import ece568.awsome_exchange_matching.PostgreSQLJDBC;
+import ece568.awsome_exchange_matching.Transaction;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
-public class orderCreateHandler implements PostgresHandler{
+import java.util.ArrayList;
+
+public class queryHandler implements PostgresHandler{
     protected PostgreSQLJDBC postgreJDBC = null;
-    Node n;
+    protected Node n;
+    protected String transID;
     protected String accountID;
-    private String sym_name;
-    private String amount;
-    private String limit;
-    private String transID;
-    public orderCreateHandler(Node _n, String _accountID){
+    public ArrayList<Transaction> transactions;
+
+    public queryHandler(Node _n, String _accountID){
         try {
             postgreJDBC = postgreJDBC.getInstance("postgres", "postgres",
                     "jdbc:postgresql://localhost:4444/postgres");
@@ -25,35 +28,19 @@ public class orderCreateHandler implements PostgresHandler{
         accountID = _accountID;
     }
 
-    public String getSym_name() {
-        return sym_name;
-    }
-
-    public String getAmount(){
-        return amount;
-    }
-
-    public String getLimit(){
-        return limit;
-    }
-
-    public String getTransID(){
-        return transID;
-    }
     @Override
     public String reader(Node n) {
         String output = null;
         if (n.getNodeType() == Node.ELEMENT_NODE) {
             try {
-                Element order = (Element) n;
-                sym_name = order.getAttribute("sym");
-                amount = order.getAttribute("amount");
-                limit = order.getAttribute("limit");
-                System.out.println("SYM: " + sym_name + ", AMT: " + amount + ", LMT：" + limit);
-                return output;
-            }catch(Exception e){
+                if (n.getNodeType() == Node.ELEMENT_NODE) {
+                    Element query = (Element) n;
+                    transID = query.getAttribute("id");
+                    System.out.println("TransID: " + transID);
+                }
+            } catch (Exception e) {
                 output = e.getMessage();
-            }finally{
+            } finally {
                 return output;
             }
         }
@@ -67,14 +54,16 @@ public class orderCreateHandler implements PostgresHandler{
     public String implementPSQL() {
         String output = null;
         try {
-            postgreJDBC.populateOrder(accountID,
-                    sym_name,
-                    amount,
-                    limit);
+            transactions = postgreJDBC.queryTransaction(transID);
         }catch(Exception e){
             output = e.getMessage();
         }finally{
             return output;
         }
     }
+
+    public String getTransID() {
+        return transID;
+    }
+
 }

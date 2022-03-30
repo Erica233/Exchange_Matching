@@ -1,13 +1,10 @@
-package ece568.awsome_exchange_matching;
+package postgresHandler;
 
-import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
-import java.util.ArrayList;
-
 public class orderCancleHandler extends queryHandler{
-    public orderCancleHandler(Node _n){
-        super(_n);
+    public orderCancleHandler(Node _n, String _accountID){
+        super(_n, _accountID);
     }
 
     @Override

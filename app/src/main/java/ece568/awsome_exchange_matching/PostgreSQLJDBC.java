@@ -91,12 +91,13 @@ public class PostgreSQLJDBC {
 
         String sql3 = "CREATE TABLE IF NOT EXISTS ORDERS"+
                 "(ID SERIAL PRIMARY KEY    NOT NULL,"+
-                "TRANSACTION_ID INT        NOT NULL,"+
+                "TRANSACTION_ID SERIAL     NOT NULL,"+
+                "TIME TIMESTAMP            NOT NULL,"+
                 "SYMBOL VARCHAR(255)       NOT NULL,"+
                 "AMOUNT NUMERIC            NOT NULL,"+
                 "ACCOUNT_ID VARCHAR(25)    NOT NULL     CHECK(ACCOUNT_ID ~ '^[0-9]*$'),"+
                 "PRICE NUMERIC             NOT NULL,"+
-                "STATE VARCHAR(255)        NOT NULL DEFAULT \'OPEN\',"+
+                "STATUS VARCHAR(255)       NOT NULL DEFAULT \'OPEN\',"+
                 "CONSTRAINT FK_ORDER FOREIGN KEY(ACCOUNT_ID) \n" +
                 "   REFERENCES ACCOUNT(ID)\n" +
                 "   ON DELETE CASCADE\n" +

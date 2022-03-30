@@ -16,3 +16,8 @@
     <account id="004">500</account>
 </symbol>
 </create>
+
+<?xml version="1.0" encoding="UTF-8"?>
+<transactions id="12345">
+    <query id="1"/>
+</transactions>

@@ -8,6 +8,7 @@ import org.w3c.dom.traversal.DocumentTraversal;
 import org.w3c.dom.traversal.NodeFilter;
 import org.w3c.dom.traversal.TreeWalker;
 import org.xml.sax.SAXException;
+import postgresHandler.*;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -18,7 +19,6 @@ import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
-import java.sql.Timestamp;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -130,10 +130,10 @@ public class XML_handler implements Runnable{
                     readOrder(n, results, id);
                     break;
                 case "query":
-                    readQuery(n, results);
+                    readQuery(n, results, id);
                     break;
                 case "cancel":
-                    readCancel(n, results);
+                    readCancel(n, results, id);
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid node name: " + n.getNodeName());
@@ -244,14 +244,15 @@ public class XML_handler implements Runnable{
      * @param p
      * @param results
      */
-    public void readQuery(Node p, Element results){
-        queryHandler myHandler = new queryHandler(p);
+    public void readQuery(Node p, Element results, String accountID){
+        queryHandler myHandler = new queryHandler(p, accountID);
         String isReadValid = myHandler.reader(p);
         if (isReadValid == null){
             String isImplementSuccess = myHandler.implementPSQL();
             if (isImplementSuccess == null){
                 //TODO: display on success
                 handleQueryOrderSuccess(myHandler, "status", results);
+                return;
             }
             //TODO: display on failure
             handleQueryOrderErr(myHandler, isImplementSuccess, results);
@@ -268,14 +269,15 @@ public class XML_handler implements Runnable{
      * @param p
      * @param results
      */
-    public void readCancel(Node p, Element results){
-        orderCancleHandler myHandler = new orderCancleHandler(p);
+    public void readCancel(Node p, Element results, String accountID){
+        orderCancleHandler myHandler = new orderCancleHandler(p, accountID);
         String isReadValid = myHandler.reader(p);
         if (isReadValid == null){
             String isImplementSuccess = myHandler.implementPSQL();
             if (isImplementSuccess == null){
                 //TODO: display on success
                 handleQueryOrderSuccess(myHandler, "canceled", results);
+                return;
             }
             //TODO: display on failure
             handleQueryOrderErr(myHandler, isImplementSuccess, results);
@@ -348,7 +350,7 @@ public class XML_handler implements Runnable{
     private void handleQueryOrderErr(queryHandler myHandler, String err_msg, Element results){
         Element query_order_fail = result_doc.createElement("error");
         query_order_fail.setAttribute("id", myHandler.getTransID());
-        String msg = "fail to open order: " + err_msg;
+        String msg = "fail to query or cancel order: " + err_msg;
         query_order_fail.setTextContent(msg);
         results.appendChild(query_order_fail);
     }

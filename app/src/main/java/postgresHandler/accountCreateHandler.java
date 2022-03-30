@@ -1,9 +1,8 @@
-package ece568.awsome_exchange_matching;
+package postgresHandler;
 
+import ece568.awsome_exchange_matching.PostgreSQLJDBC;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
-
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class accountCreateHandler implements PostgresHandler{
     protected PostgreSQLJDBC postgreJDBC = null;
