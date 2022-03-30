@@ -229,10 +229,9 @@ public class PostgreSQLJDBC {
         ResultSet rs = stmt.executeQuery(sql);
         ArrayList<Transaction> outputs = new ArrayList<Transaction>();
         while (rs.next()) {
-            Transaction tran = new Transaction(rs.getInt("TRANSACTION_ID"),
+            outputs.add(new Transaction(rs.getInt("TRANSACTION_ID"),
                     rs.getString("STATUS"), rs.getDouble("AMOUNT"),
-                    rs.getTimestamp("TIME"), rs.getDouble("PRICE"));
-            outputs.add(tran);
+                    rs.getTimestamp("TIME"), rs.getDouble("PRICE")));
         }
         rs.close();
         stmt.close();
@@ -240,46 +239,63 @@ public class PostgreSQLJDBC {
         return outputs;
     }
 
-    public void cancelTransaction(String trans_id) throws SQLException, IllegalArgumentException {
+    public ArrayList<Transaction> cancelTransaction(String trans_id) throws SQLException, IllegalArgumentException {
         c = DriverManager.getConnection(url, user, password);
         c.setAutoCommit(false);
         stmt = c.createStatement();
-        //check if the cancellation operation is valid
-        String selectSql = "SELECT ACCOUNT.ID, ACCOUNT.BALANCE, POSITION.AMOUNT, " +
-                "ORDERS.AMOUNT, ORDERS.SYMBOL, ORDERS.AMOUNT, ORDERS.PRICE FROM ACCOUNT, POSITION, ORDERS " +
-                "WHERE TRANSACTION_ID=" + trans_id + " AND STATUS=OPEN " +
-                "AND ACCOUNT.ID=ORDERS.ACCOUNT_ID AND ACCOUNT.ID=POSITION.ACCOUNT_ID;";
+        ArrayList<Transaction> outputs = new ArrayList<Transaction>();
+        String selectSql = "SELECT * FROM ACCOUNT, POSITION, ORDERS " +
+                "WHERE TRANSACTION_ID=" + trans_id + " AND ACCOUNT.ID=ORDERS.ACCOUNT_ID " +
+                "AND ACCOUNT.ID=POSITION.ACCOUNT_ID ORDER BY -STATUS;";
         ResultSet rs = stmt.executeQuery(selectSql);
-        String accountId = rs.getString("ACCOUNT.ID");
-        double balance = rs.getDouble("ACCOUNT.BALANCE");
-        double positionAmount = rs.getDouble("POSITION.AMOUNT");
-        double ordersAmount = rs.getDouble("ORDERS.AMOUNT");
-        String symbol = rs.getString("ORDERS.SYMBOL");
-        double price = rs.getDouble("ORDERS.PRICE");
-        if (!rs.next()) {
-            //invalid cancellation: no open portion of this transaction_id
-            throw new IllegalArgumentException("invalid cancellation: no open portion of this transaction_id");
-        } else {
-            // in table 'orders': change status
-            String updateOrdersSql = "UPDATE ORDERS SET STATE = CANCELED " +
-                    "WHERE TRANSACTION_ID=" + trans_id + ";";
-            stmt.executeUpdate(updateOrdersSql);
-
-            // in table 'account' and 'position':
-            if (ordersAmount < 0) {
-                // if cancel a sell order: give back seller's shares
-                String updatePositionSql = "UPDATE POSITION SET AMOUNT = " + (positionAmount + ordersAmount) +
-                        "WHERE SYMBOL='" + symbol + "' AND ACCOUNT_ID='"+ accountId +"';";
-                stmt.executeUpdate(updatePositionSql);
-            } else {
-                // if cancel a buy order: refunds buyer's account
-                String updateAccountSql = "UPDATE ACCOUNT SET BALANCE= "+ (balance + ordersAmount * price) +
-                        "WHERE ID='" + accountId + "';";
-                stmt.executeUpdate(updateAccountSql);
-            }
+        // check if the cancellation operation is valid
+        if (rs == null) {
+            throw new IllegalArgumentException("invalid cancellation: transaction_id is not existed!\n");
         }
+        while (rs.next()) {
+            String status = rs.getString("ORDERS.STATUS");
+            int id = rs.getInt("ORDERS.ID");
+            String accountId = rs.getString("ACCOUNT.ID");
+            double balance = rs.getDouble("ACCOUNT.BALANCE");
+            double positionAmount = rs.getDouble("POSITION.AMOUNT");
+            double ordersAmount = rs.getDouble("ORDERS.AMOUNT");
+            String symbol = rs.getString("ORDERS.SYMBOL");
+            double price = rs.getDouble("ORDERS.PRICE");
+
+            if (rs.isFirst()) {
+                if (status != "OPEN") {
+                    throw new IllegalArgumentException("invalid cancellation: no open orders in this transaction id!\n");
+                }
+                outputs.add(new Transaction(rs.getInt("ORDERS.TRANSACTION_ID"),
+                        "CANCELED", rs.getDouble("ORDERS.AMOUNT"),
+                        rs.getTimestamp("ORDERS.TIME"), rs.getDouble("ORDERS.PRICE")));
+                // in table 'orders': change status
+                String updateOrdersSql = "UPDATE ORDERS SET STATE = CANCELED " +
+                        "WHERE ID=" + id + ";";
+                stmt.executeUpdate(updateOrdersSql);
+                // in table 'account' and 'position':
+                if (ordersAmount < 0) {
+                    // if cancel a sell order: give back seller's shares
+                    String updatePositionSql = "UPDATE POSITION SET AMOUNT = " + (positionAmount + ordersAmount) +
+                            "WHERE SYMBOL='" + symbol + "' AND ACCOUNT_ID='"+ accountId +"';";
+                    stmt.executeUpdate(updatePositionSql);
+                } else {
+                    // if cancel a buy order: refunds buyer's account
+                    String updateAccountSql = "UPDATE ACCOUNT SET BALANCE= "+ (balance + ordersAmount * price) +
+                            "WHERE ID='" + accountId + "';";
+                    stmt.executeUpdate(updateAccountSql);
+                }
+            } else {
+                outputs.add(new Transaction(rs.getInt("ORDERS.TRANSACTION_ID"),
+                        rs.getString("ORDERS.STATUS"), rs.getDouble("ORDERS.AMOUNT"),
+                        rs.getTimestamp("ORDERS.TIME"), rs.getDouble("ORDERS.PRICE")));
+            }
+
+        }
+
         c.commit();
         stmt.close();
         c.close();
+        return outputs;
     }
 }
