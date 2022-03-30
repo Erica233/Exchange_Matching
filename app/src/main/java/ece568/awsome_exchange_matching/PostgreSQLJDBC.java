@@ -1,6 +1,7 @@
 package ece568.awsome_exchange_matching;
 
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class PostgreSQLJDBC {
@@ -149,5 +150,115 @@ public class PostgreSQLJDBC {
         c.commit();
         c.close();
     }
+
+
+    public void populateOrder(String accountId, String symbol, String amount, String limit) throws SQLException {
+        c = DriverManager.getConnection(url, user, password);
+        c.setAutoCommit(false);
+        stmt = c.createStatement();
+
+        // first check if any matched orders
+        // if has, find the matched orders and update
+        double amount_double = Double.parseDouble(amount);
+        double limit_double = Double.parseDouble(limit);
+        String checkSql;
+        //sell
+        if (amount_double < 0) {
+            checkSql = "SELECT * FROM ORDERS " +
+                    "WHERE SYMBOL='" + symbol + "' AND PRICE>=" + limit_double +
+                    " ORDER BY -PRICE AND TIME;";
+        } else {
+            //buy
+            checkSql = "SELECT * FROM ORDERS " +
+                    "WHERE SYMBOL='" + symbol + "' AND PRICE<=" + limit_double +
+                    " ORDER BY PRICE AND TIME;";
+        }
+        ResultSet rs = stmt.executeQuery(checkSql);
+        while (rs.next() && amount_double != 0) {
+            int transaction_id = rs.getInt("transaction_id");
+            double curr_amount = rs.getDouble("amount");
+            double curr_limit = rs.getDouble("price");
+
+            String executeSql = "";
+
+        }
+        // if not, directly insert
+        String sql = "INSERT INTO ORDERS (TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE) " +
+                "VALUES (CURRENT_TIMESTAMP, '" + symbol + "', " + amount + ", '" +
+                accountId + "', " + limit + ");";
+        stmt.executeUpdate(sql);
+        System.out.println("insert elem into table ORDERS successfully");
+        stmt.close();
+        c.commit();
+        c.close();
+    }
+
+    public void checkMatchOrders() throws SQLException {
+
+    }
+
+    public ArrayList<Transaction> queryTransaction(String trans_id) throws SQLException {
+        c = DriverManager.getConnection(url, user, password);
+        c.setAutoCommit(false);
+        stmt = c.createStatement();
+        String sql = "SELECT TRANSACTION_ID, STATUS, AMOUNT, TIME, PRICE FROM ORDERS " +
+                "WHERE TRANSACTION_ID=" + trans_id + ";";
+        ResultSet rs = stmt.executeQuery(sql);
+        ArrayList<Transaction> outputs = new ArrayList<Transaction>();
+        while (rs.next()) {
+            Transaction tran = new Transaction(rs.getInt("TRANSACTION_ID"),
+                    rs.getString("STATUS"), rs.getDouble("AMOUNT"),
+                    rs.getTimestamp("TIME"), rs.getDouble("PRICE"));
+            outputs.add(tran);
+        }
+        rs.close();
+        stmt.close();
+        c.close();
+        return outputs;
+    }
+
+    public void cancelTransaction(String trans_id) throws SQLException, IllegalArgumentException {
+        c = DriverManager.getConnection(url, user, password);
+        c.setAutoCommit(false);
+        stmt = c.createStatement();
+        //check if the cancellation operation is valid
+        String selectSql = "SELECT ACCOUNT.ID, ACCOUNT.BALANCE, POSITION.AMOUNT, " +
+                "ORDERS.AMOUNT, ORDERS.SYMBOL, ORDERS.AMOUNT, ORDERS.PRICE FROM ACCOUNT, POSITION, ORDERS " +
+                "WHERE TRANSACTION_ID=" + trans_id + " AND STATUS=OPEN " +
+                "AND ACCOUNT.ID=ORDERS.ACCOUNT_ID AND ACCOUNT.ID=POSITION.ACCOUNT_ID;";
+        ResultSet rs = stmt.executeQuery(selectSql);
+        String accountId = rs.getString("ACCOUNT.ID");
+        double balance = rs.getDouble("ACCOUNT.BALANCE");
+        double positionAmount = rs.getDouble("POSITION.AMOUNT");
+        double ordersAmount = rs.getDouble("ORDERS.AMOUNT");
+        String symbol = rs.getString("ORDERS.SYMBOL");
+        double price = rs.getDouble("ORDERS.PRICE");
+        if (!rs.next()) {
+            //invalid cancellation: no open portion of this transaction_id
+            throw new IllegalArgumentException("invalid cancellation: no open portion of this transaction_id");
+        } else {
+            // in table 'orders': change status
+            String updateOrdersSql = "UPDATE ORDERS SET STATE = CANCELED " +
+                    "WHERE TRANSACTION_ID=" + trans_id + ";";
+            stmt.executeUpdate(updateOrdersSql);
+
+            // in table 'account' and 'position':
+            if (ordersAmount < 0) {
+                // if cancel a sell order: give back seller's shares
+                String updatePositionSql = "UPDATE POSITION SET AMOUNT = " + (positionAmount + ordersAmount) +
+                        "WHERE SYMBOL='" + symbol + "' AND ACCOUNT_ID='"+ accountId +"';";
+                stmt.executeUpdate(updatePositionSql);
+            } else {
+                // if cancel a buy order: refunds buyer's account
+                String updateAccountSql = "UPDATE ACCOUNT SET BALANCE= "+ (balance + ordersAmount * price) +
+                        "WHERE ID='" + accountId + "';";
+                stmt.executeUpdate(updateAccountSql);
+            }
+        }
+        c.commit();
+        stmt.close();
+        c.close();
+    }
+
 
 }

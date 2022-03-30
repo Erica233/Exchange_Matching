@@ -18,14 +18,15 @@ import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class XML_handler implements Runnable{
     private final Socket clientSocket;
     public DocumentBuilderFactory factory;
-    private DocumentBuilder create_builder;
-    private Document create_doc;
+    private DocumentBuilder result_builder;
+    private Document result_doc;
     public XML_handler(Socket c) {
         clientSocket = c;
         factory = DocumentBuilderFactory.newInstance();
@@ -39,12 +40,12 @@ public class XML_handler implements Runnable{
             System.out.println("Root element:" + doc.getDocumentElement().getNodeName());
             //create result XML
             //create documentBuilder
-            create_builder = factory.newDocumentBuilder();
+            result_builder = factory.newDocumentBuilder();
             //create document
-            create_doc = create_builder.newDocument();
+            result_doc = result_builder.newDocument();
             //create root node
-            Element results = create_doc.createElement("results");
-            create_doc.appendChild(results);
+            Element results = result_doc.createElement("results");
+            result_doc.appendChild(results);
 
             if (doc.getDocumentElement().getNodeName() == "create") {
                 parseCreate(doc, bufferedWriter, results);
@@ -59,7 +60,7 @@ public class XML_handler implements Runnable{
             Transformer tf = tff.newTransformer();
             //set change line
             tf.setOutputProperty(OutputKeys.INDENT, "yes");
-            tf.transform(new DOMSource(create_doc), result);
+            tf.transform(new DOMSource(result_doc), result);
             //convert XML to string, send to client
             bufferedWriter.write(writer.toString());
             bufferedWriter.flush();
@@ -126,7 +127,7 @@ public class XML_handler implements Runnable{
                 case "#text":
                     break;
                 case "order":
-                    readOrder(n);
+                    readOrder(n, results, id);
                     break;
                 case "query":
                     readQuery(n, results);
@@ -140,6 +141,12 @@ public class XML_handler implements Runnable{
         }
     }
     //readers:
+
+    /**
+     * read XML node "create Account"
+     * @param p
+     * @param results
+     */
     public void readAccount(Node p, Element results ) {
         accountCreateHandler myHandler = new accountCreateHandler(p);
         String isReadValid = myHandler.reader(p);
@@ -147,7 +154,7 @@ public class XML_handler implements Runnable{
             String isImplementSuccess = myHandler.implementPSQL();
             if (isImplementSuccess == null){
                 //TODO: display on success
-                Element create_account = create_doc.createElement("created");
+                Element create_account = result_doc.createElement("created");
                 create_account.setAttribute("id", myHandler.getAccountID());
                 results.appendChild(create_account);
                 return;
@@ -162,6 +169,11 @@ public class XML_handler implements Runnable{
         return;
     }
 
+    /**
+     * read XML node "create Symbol"
+     * @param p
+     * @param results
+     */
     public void readSys(Node p, Element results ){
         if (p.getNodeType() == Node.ELEMENT_NODE) {
             Element sym = (Element) p;
@@ -178,7 +190,7 @@ public class XML_handler implements Runnable{
                             String isImplementSuccess = myHandler.implementPSQL();
                             if (isImplementSuccess == null) {
                                 //TODO: display on success
-                                Element create_position = create_doc.createElement("created");
+                                Element create_position = result_doc.createElement("created");
                                 create_position.setAttribute("sym", myHandler.getSym_name());
                                 create_position.setAttribute("id", myHandler.getAccountID());
                                 results.appendChild(create_position);
@@ -196,50 +208,90 @@ public class XML_handler implements Runnable{
         }
     }
 
-    private void handleCreatePositErr(positionCreateHandler myHandler, String err_msg, Element results){
-        Element create_position_fail = create_doc.createElement("error");
-        create_position_fail.setAttribute("sym", myHandler.getSym_name());
-        create_position_fail.setAttribute("id", myHandler.getAccountID());
-        String msg = "fail to insert element into table position: " + err_msg;
-        create_position_fail.setTextContent(msg);
-        results.appendChild(create_position_fail);
-    }
+    /**
+     * read XML node "open order"
+     * @param p
+     * @param results
+     * @param id
+     */
+    public void readOrder(Node p, Element results, String id){
+        orderCreateHandler myHandler = new orderCreateHandler(p, id);
+        String isReadValid = myHandler.reader(p);
+        if (isReadValid == null){
+            String isImplementSuccess = myHandler.implementPSQL();
+            if (isImplementSuccess == null){
+                //TODO: display on success
+                Element open_order = result_doc.createElement("opened");
+                open_order.setAttribute("sym", myHandler.getSym_name());
+                open_order.setAttribute("amount", myHandler.getAmount());
+                open_order.setAttribute("limit", myHandler.getLimit());
+                open_order.setAttribute("id", myHandler.getTransID());
+                results.appendChild(open_order);
+                return;
+            }
+            //TODO: display on failure
+            handleOpenOrderErr(myHandler, isImplementSuccess, results);
 
-    private void handleCreateAccErr(accountCreateHandler myHandler, String err_msg, Element results){
-        Element create_account_fail = create_doc.createElement("error");
-        create_account_fail.setAttribute("id", myHandler.getAccountID());
-        String msg = "fail to insert element into table position: " + err_msg;
-        create_account_fail.setTextContent(msg);
-        results.appendChild(create_account_fail);
-    }
-
-
-    public void readOrder(Node p){
-        if (p.getNodeType() == Node.ELEMENT_NODE) {
-            Element order = (Element) p;
-            String SYM = order.getAttribute("sym");
-            String AMT = order.getAttribute("amount");
-            String LMT = order.getAttribute("limit");
-            System.out.println("SYM: "+ SYM + ", AMT: " + AMT + ", LMT：" + LMT);
+        } else{
+            //TODO: display on failure
+            handleOpenOrderErr(myHandler, isReadValid, results);
         }
+        return;
     }
 
+    /**
+     * read XML node "query order"
+     * @param p
+     * @param results
+     */
     public void readQuery(Node p, Element results){
-        if (p.getNodeType() == Node.ELEMENT_NODE) {
-            Element query = (Element) p;
-            String transID = query.getAttribute("id");
-            System.out.println("TransID: " + transID);
+        queryHandler myHandler = new queryHandler(p);
+        String isReadValid = myHandler.reader(p);
+        if (isReadValid == null){
+            String isImplementSuccess = myHandler.implementPSQL();
+            if (isImplementSuccess == null){
+                //TODO: display on success
+                handleQueryOrderSuccess(myHandler, "status", results);
+            }
+            //TODO: display on failure
+            handleQueryOrderErr(myHandler, isImplementSuccess, results);
+
+        } else{
+            //TODO: display on failure
+            handleQueryOrderErr(myHandler, isReadValid, results);
         }
+        return;
     }
 
+    /**
+     * read XML node "cancel order"
+     * @param p
+     * @param results
+     */
     public void readCancel(Node p, Element results){
-        if (p.getNodeType() == Node.ELEMENT_NODE) {
-            Element cancel = (Element) p;
-            String transID = cancel.getAttribute("id");
-            System.out.println("TransID: " + transID);
+        orderCancleHandler myHandler = new orderCancleHandler(p);
+        String isReadValid = myHandler.reader(p);
+        if (isReadValid == null){
+            String isImplementSuccess = myHandler.implementPSQL();
+            if (isImplementSuccess == null){
+                //TODO: display on success
+                handleQueryOrderSuccess(myHandler, "canceled", results);
+            }
+            //TODO: display on failure
+            handleQueryOrderErr(myHandler, isImplementSuccess, results);
+
+        } else{
+            //TODO: display on failure
+            handleQueryOrderErr(myHandler, isReadValid, results);
         }
+        return;
     }
 
+    /**
+     * filter the input string into a well-formatted xml string
+     * @param xml
+     * @return
+     */
     public static String filterBlankXMl(String xml) {
         //remove space and new lines
         Pattern p = Pattern.compile(">\\s{1,}|\t|\r|\n");
@@ -259,6 +311,78 @@ public class XML_handler implements Runnable{
         System.out.println("received XML:\n" + xml);
         return xml;
     }
+
+    /**
+     * helper functions
+     * @param myHandler
+     * @param err_msg
+     * @param results
+     */
+    private void handleCreatePositErr(positionCreateHandler myHandler, String err_msg, Element results){
+        Element create_position_fail = result_doc.createElement("error");
+        create_position_fail.setAttribute("sym", myHandler.getSym_name());
+        create_position_fail.setAttribute("id", myHandler.getAccountID());
+        String msg = "fail to insert element into table position: " + err_msg;
+        create_position_fail.setTextContent(msg);
+        results.appendChild(create_position_fail);
+    }
+
+    private void handleCreateAccErr(accountCreateHandler myHandler, String err_msg, Element results){
+        Element create_account_fail = result_doc.createElement("error");
+        create_account_fail.setAttribute("id", myHandler.getAccountID());
+        String msg = "fail to insert element into table position: " + err_msg;
+        create_account_fail.setTextContent(msg);
+        results.appendChild(create_account_fail);
+    }
+
+    private void handleOpenOrderErr(orderCreateHandler myHandler, String err_msg, Element results){
+        Element open_order_fail = result_doc.createElement("error");
+        open_order_fail.setAttribute("sym", myHandler.getSym_name());
+        open_order_fail.setAttribute("amount", myHandler.getAmount());
+        open_order_fail.setAttribute("limit", myHandler.getLimit());
+        String msg = "fail to open order: " + err_msg;
+        open_order_fail.setTextContent(msg);
+        results.appendChild(open_order_fail);
+    }
+
+    private void handleQueryOrderErr(queryHandler myHandler, String err_msg, Element results){
+        Element query_order_fail = result_doc.createElement("error");
+        query_order_fail.setAttribute("id", myHandler.getTransID());
+        String msg = "fail to open order: " + err_msg;
+        query_order_fail.setTextContent(msg);
+        results.appendChild(query_order_fail);
+    }
+
+    private void handleQueryOrderSuccess(queryHandler myHandler, String tag, Element results){
+        Element query_order = result_doc.createElement(tag);
+        query_order.setAttribute("id", myHandler.getTransID());
+        for(int i = 0; i < myHandler.transactions.size(); i++){
+            Transaction t = myHandler.transactions.get(i);
+            switch(t.getStatus()){
+                case "open":
+                    Element open_order = result_doc.createElement("open");
+                    open_order.setAttribute("shares", Double.toString(t.getAmount()));
+                    query_order.appendChild(open_order);
+                    break;
+                case "canceled":
+                    Element canceled_order = result_doc.createElement("canceled");
+                    canceled_order.setAttribute("shares", Double.toString(t.getAmount()));
+                    canceled_order.setAttribute("time", t.getTime().toString());
+                    query_order.appendChild(canceled_order);
+                    break;
+                case "executed":
+                    Element executed_order = result_doc.createElement("executed");
+                    executed_order.setAttribute("shares", Double.toString(t.getAmount()));
+                    executed_order.setAttribute("price", Double.toString(t.getPrice()));
+                    executed_order.setAttribute("time", t.getTime().toString());
+                    query_order.appendChild(executed_order);
+                    break;
+            }
+        }
+        results.appendChild(query_order);
+        return;
+    }
+    ///////////////////////////////////////////////////////////////////////////////////////////
 
     /**
      * implement XMLhandler for each client node in separate thread
