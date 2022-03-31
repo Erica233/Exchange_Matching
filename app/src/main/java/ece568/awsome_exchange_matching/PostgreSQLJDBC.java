@@ -126,7 +126,6 @@ public class PostgreSQLJDBC {
     }
 
     public void populatePosition(String Symbol, String accountID, String amt) throws SQLException {
-
         c = DriverManager
                 .getConnection(url, user, password);
         c.setAutoCommit(false);
@@ -425,6 +424,4 @@ public class PostgreSQLJDBC {
         c.close();
         return outputs;
     }
-
-
 }

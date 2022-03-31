@@ -48,4 +48,3 @@ public class Transaction {
         return price;
     }
 }
-
