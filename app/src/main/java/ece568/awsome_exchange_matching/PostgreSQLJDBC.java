@@ -152,50 +152,204 @@ public class PostgreSQLJDBC {
         c.close();
     }
 
+    public void handleSell(int new_id, String accountId, String symbol, double amount_double, double limit_double) throws SQLException {
+        // place order: deduct shares from seller's position
+        String positionSql = "SELECT AMOUNT FROM POSITION " +
+                "WHERE ACCOUNT_ID='" + accountId + "' AND SYMBOL='" + symbol + "';";
+        ResultSet position_rs = stmt.executeQuery(positionSql);
+        if ((position_rs.getDouble("AMOUNT") + amount_double) < 0) {
+            throw new IllegalArgumentException("Invalid transaction: insufficient amount of shares!");
+        } else {
+            String sql = "UPDATE POSITION SET AMOUNT=" + (position_rs.getDouble("AMOUNT") + amount_double) +
+                    " WHERE ID=" + accountId + ";";
+            stmt.executeUpdate(sql);
+            c.commit();
+        }
 
-    public void populateOrder(String accountId, String symbol, String amount, String limit) throws SQLException {
+        // execute order: match orders and credit seller's account
+        String checkSql = "SELECT * FROM ORDERS " +
+                "WHERE SYMBOL='" + symbol + "' AND PRICE>=" + limit_double +
+                " ORDER BY -PRICE AND TIME;";
+        ResultSet rs = stmt.executeQuery(checkSql);
+        // if has matched orders, find the matched orders and execute one by one
+        while (rs.next() && amount_double != 0) {
+            int id = rs.getInt("ID");
+            int curr_tran_id = rs.getInt("transaction_id");
+            double curr_amount = rs.getDouble("amount");
+            double curr_limit = rs.getDouble("price");
+            int buyer_acc_id = rs.getInt("account_id");
+            double matched_amount = 0;
+            if (-amount_double >= curr_amount) {
+                matched_amount = curr_amount;
+                // update buyer side to executed
+                String executeSql = "UPDATE ORDERS SET STATE=EXECUTED WHERE ID=" + id + ";";
+                stmt.executeUpdate(executeSql);
+                c.commit();
+                // insert seller side - executed
+                String insertSql = "INSERT INTO ORDERS (TRANSACTION_ID, TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE, STATUS) " +
+                        "VALUES (" + new_id + ", CURRENT_TIMESTAMP, '" + symbol + "', " + (-curr_amount) + ", '" +
+                        accountId + "', " + curr_limit + ", EXECUTED);";
+                stmt.executeUpdate(insertSql);
+                c.commit();
+                amount_double += curr_amount;
+            } else {
+                matched_amount = amount_double;
+                // update amount of buyer side
+                String executeSql = "UPDATE ORDERS SET AMOUNT=" + (curr_amount + amount_double) +
+                        " WHERE ID=" + id + ";";
+                stmt.executeUpdate(executeSql);
+                c.commit();
+                // insert buyer side - executed
+                String insertSql = "INSERT INTO ORDERS (TRANSACTION_ID, TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE, STATUS) " +
+                        "VALUES (" + curr_tran_id + ", CURRENT_TIMESTAMP, '" + symbol + "', " + (-amount_double) + ", '" +
+                        buyer_acc_id + "', " + curr_limit + ", EXECUTED);";
+                stmt.executeUpdate(insertSql);
+                c.commit();
+
+                // insert seller side - executed
+                String insertSql2 = "INSERT INTO ORDERS (TRANSACTION_ID, TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE, STATUS) " +
+                        "VALUES (" + new_id + ", CURRENT_TIMESTAMP, '" + symbol + "', " + amount_double + ", '" +
+                        accountId + "', " + curr_limit + ", EXECUTED);";
+                stmt.executeUpdate(insertSql2);
+                c.commit();
+                amount_double = 0;
+            }
+            // update account: add seller's balance
+            String updateSellerSql = "UPDATE ACCOUNT SET BALANCE=" + matched_amount * curr_limit +
+                    " WHERE ID=" + accountId + ";";
+            stmt.executeUpdate(updateSellerSql);
+            c.commit();
+            // update position: add buyer's amount
+            String updateBuyerSql = "UPDATE POSITION SET AMOUNT=" + matched_amount +
+                    " WHERE ACCOUNT_ID=" + buyer_acc_id + ";";
+            stmt.executeUpdate(updateBuyerSql);
+            c.commit();
+        }
+        // if left any unmatched portion, insert a new order
+        if (amount_double != 0) {
+            String sql = "INSERT INTO ORDERS (TRANSACTION_ID, TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE) " +
+                    "VALUES (" + new_id + ", CURRENT_TIMESTAMP, '" + symbol + "', " + amount_double + ", '" +
+                    accountId + "', " + limit_double + ");";
+            stmt.executeUpdate(sql);
+        }
+    }
+
+    public void handleBuy(int new_id, String accountId, String symbol, double amount_double, double limit_double) throws SQLException {
+        // place order: deduct balance from buyer's account
+        String accountSql = "SELECT BALANCE FROM ACCOUNT WHERE ID=" + accountId + ";";
+        ResultSet account_rs = stmt.executeQuery(accountSql);
+        if ((account_rs.getDouble("BALANCE") - amount_double * limit_double) < 0) {
+            throw new IllegalArgumentException("Invalid transaction: insufficient funds!");
+        } else {
+            String sql = "UPDATE ACCOUNT SET BALANCE=" + (account_rs.getDouble("BALANCE") - amount_double * limit_double) +
+                    " WHERE ID=" + accountId + ";";
+            stmt.executeUpdate(sql);
+            c.commit();
+        }
+
+        // execute order: match orders and credit seller's account
+        String checkSql = "SELECT * FROM ORDERS " +
+                "WHERE SYMBOL='" + symbol + "' AND PRICE<=" + limit_double +
+                " ORDER BY PRICE AND TIME;";
+        ResultSet rs = stmt.executeQuery(checkSql);
+        // if has matched orders, find the matched orders and execute one by one
+        while (rs.next() && amount_double != 0) {
+            int id = rs.getInt("ID");
+            int curr_tran_id = rs.getInt("transaction_id");
+            double curr_amount = rs.getDouble("amount");
+            double curr_limit = rs.getDouble("price");
+            int curr_acc_id = rs.getInt("account_id");
+            double matched_amount = 0;
+            if (amount_double >= -curr_amount) {
+                matched_amount = -curr_amount;
+                // update seller side to executed
+                String executeSql = "UPDATE ORDERS SET STATE=EXECUTED WHERE ID=" + id + ";";
+                stmt.executeUpdate(executeSql);
+                c.commit();
+                // insert buyer side - executed
+                String insertSql = "INSERT INTO ORDERS (TRANSACTION_ID, TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE, STATUS) " +
+                        "VALUES (" + new_id + ", CURRENT_TIMESTAMP, '" + symbol + "', " + (-curr_amount) + ", '" +
+                        accountId + "', " + curr_limit + ", EXECUTED);";
+                stmt.executeUpdate(insertSql);
+                c.commit();
+                amount_double += curr_amount;
+            } else {
+                matched_amount = amount_double;
+                // update amount of existed side
+                String executeSql = "UPDATE ORDERS SET AMOUNT=" + (curr_amount + amount_double) +
+                        " WHERE ID=" + id + ";";
+                stmt.executeUpdate(executeSql);
+                c.commit();
+                // insert existed side - executed
+                String insertSql = "INSERT INTO ORDERS (TRANSACTION_ID, TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE, STATUS) " +
+                        "VALUES (" + curr_tran_id + ", CURRENT_TIMESTAMP, '" + symbol + "', " + (-amount_double) + ", '" +
+                        curr_acc_id + "', " + curr_limit + ", EXECUTED);";
+                stmt.executeUpdate(insertSql);
+                c.commit();
+
+                // insert populated side - executed
+                String insertSql2 = "INSERT INTO ORDERS (TRANSACTION_ID, TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE, STATUS) " +
+                        "VALUES (" + new_id + ", CURRENT_TIMESTAMP, '" + symbol + "', " + amount_double + ", '" +
+                        accountId + "', " + curr_limit + ", EXECUTED);";
+                stmt.executeUpdate(insertSql2);
+                c.commit();
+                amount_double = 0;
+            }
+            // update account: add seller's balance
+            String updateSellerSql = "UPDATE ACCOUNT SET BALANCE=" + matched_amount * curr_limit +
+                    " WHERE ID=" + curr_acc_id + ";";
+            stmt.executeUpdate(updateSellerSql);
+            c.commit();
+
+            // update account: credit buyer's balance
+            String updateCreditSql = "UPDATE ACCOUNT SET BALANCE=" + matched_amount * (curr_limit - limit_double) +
+                    " WHERE ID=" + curr_acc_id + ";";
+            stmt.executeUpdate(updateCreditSql);
+            c.commit();
+            // update position: add buyer's amount
+            String updateBuyerSql = "UPDATE POSITION SET AMOUNT=" + matched_amount +
+                    " WHERE ACCOUNT_ID=" + accountId + ";";
+            stmt.executeUpdate(updateBuyerSql);
+            c.commit();
+        }
+        // if left any unmatched portion, insert a new order
+        if (amount_double != 0) {
+            String sql = "INSERT INTO ORDERS (TRANSACTION_ID, TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE) " +
+                    "VALUES (" + new_id + ", CURRENT_TIMESTAMP, '" + symbol + "', " + amount_double + ", '" +
+                    accountId + "', " + limit_double + ");";
+            stmt.executeUpdate(sql);
+        }
+    }
+
+    public void matchOrders() {
+
+    }
+
+    public ArrayList<Transaction> populateOrder(String accountId, String symbol, String amount, String limit) throws SQLException {
         c = DriverManager.getConnection(url, user, password);
         c.setAutoCommit(false);
         stmt = c.createStatement();
+        ArrayList<Transaction> outputs = new ArrayList<Transaction>();
 
-        // first check if any matched orders
-        // if has, find the matched orders and update
+        // get next transaction id
+        String getSql = "SELECT TRANSACTION_ID FROM ORDERS ORDER BY -ID LIMIT 1;";
+        ResultSet rs_id = stmt.executeQuery(getSql);
+        int new_id = rs_id.getInt("TRANSACTION_ID") + 1;
+
+        // check if the order is valid and if any matched orders
         double amount_double = Double.parseDouble(amount);
         double limit_double = Double.parseDouble(limit);
-        String checkSql;
-        //sell
         if (amount_double < 0) {
-            checkSql = "SELECT * FROM ORDERS " +
-                    "WHERE SYMBOL='" + symbol + "' AND PRICE>=" + limit_double +
-                    " ORDER BY -PRICE AND TIME;";
+            handleSell(new_id, accountId, symbol, amount_double, limit_double);
         } else {
-            //buy
-            checkSql = "SELECT * FROM ORDERS " +
-                    "WHERE SYMBOL='" + symbol + "' AND PRICE<=" + limit_double +
-                    " ORDER BY PRICE AND TIME;";
+            handleBuy(new_id, accountId, symbol, amount_double, limit_double);
         }
-        ResultSet rs = stmt.executeQuery(checkSql);
-        while (rs.next() && amount_double != 0) {
-            int transaction_id = rs.getInt("transaction_id");
-            double curr_amount = rs.getDouble("amount");
-            double curr_limit = rs.getDouble("price");
-
-            String executeSql = "";
-
-        }
-        // if not, directly insert
-        String sql = "INSERT INTO ORDERS (TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE) " +
-                "VALUES (CURRENT_TIMESTAMP, '" + symbol + "', " + amount + ", '" +
-                accountId + "', " + limit + ");";
-        stmt.executeUpdate(sql);
-        System.out.println("insert elem into table ORDERS successfully");
+        outputs.add(new Transaction(symbol, amount_double, limit_double, new_id));
+        rs_id.close();
         stmt.close();
         c.commit();
         c.close();
-    }
-
-    public void checkMatchOrders() throws SQLException {
-
+        return outputs;
     }
 
     public ArrayList<Transaction> queryTransaction(String trans_id) throws SQLException {
@@ -207,10 +361,9 @@ public class PostgreSQLJDBC {
         ResultSet rs = stmt.executeQuery(sql);
         ArrayList<Transaction> outputs = new ArrayList<Transaction>();
         while (rs.next()) {
-            Transaction tran = new Transaction(rs.getInt("TRANSACTION_ID"),
+            outputs.add(new Transaction(rs.getInt("TRANSACTION_ID"),
                     rs.getString("STATUS"), rs.getDouble("AMOUNT"),
-                    rs.getTimestamp("TIME"), rs.getDouble("PRICE"));
-            outputs.add(tran);
+                    rs.getTimestamp("TIME"), rs.getDouble("PRICE")));
         }
         rs.close();
         stmt.close();
@@ -218,47 +371,59 @@ public class PostgreSQLJDBC {
         return outputs;
     }
 
-    public void cancelTransaction(String trans_id) throws SQLException, IllegalArgumentException {
+    public ArrayList<Transaction> cancelTransaction(String trans_id) throws SQLException, IllegalArgumentException {
         c = DriverManager.getConnection(url, user, password);
         c.setAutoCommit(false);
         stmt = c.createStatement();
-        //check if the cancellation operation is valid
-        String selectSql = "SELECT ACCOUNT.ID, ACCOUNT.BALANCE, POSITION.AMOUNT, " +
-                "ORDERS.AMOUNT, ORDERS.SYMBOL, ORDERS.AMOUNT, ORDERS.PRICE FROM ACCOUNT, POSITION, ORDERS " +
-                "WHERE TRANSACTION_ID=" + trans_id + " AND STATUS=OPEN " +
-                "AND ACCOUNT.ID=ORDERS.ACCOUNT_ID AND ACCOUNT.ID=POSITION.ACCOUNT_ID;";
+        ArrayList<Transaction> outputs = new ArrayList<Transaction>();
+        String selectSql = "SELECT * FROM ACCOUNT, POSITION, ORDERS " +
+                "WHERE TRANSACTION_ID=" + trans_id + " AND ACCOUNT.ID=ORDERS.ACCOUNT_ID " +
+                "AND ACCOUNT.ID=POSITION.ACCOUNT_ID ORDER BY -STATUS;";
         ResultSet rs = stmt.executeQuery(selectSql);
-        String accountId = rs.getString("ACCOUNT.ID");
-        double balance = rs.getDouble("ACCOUNT.BALANCE");
-        double positionAmount = rs.getDouble("POSITION.AMOUNT");
-        double ordersAmount = rs.getDouble("ORDERS.AMOUNT");
-        String symbol = rs.getString("ORDERS.SYMBOL");
-        double price = rs.getDouble("ORDERS.PRICE");
-        if (!rs.next()) {
-            //invalid cancellation: no open portion of this transaction_id
-            throw new IllegalArgumentException("invalid cancellation: no open portion of this transaction_id");
-        } else {
-            // in table 'orders': change status
-            String updateOrdersSql = "UPDATE ORDERS SET STATE = CANCELED " +
-                    "WHERE TRANSACTION_ID=" + trans_id + ";";
-            stmt.executeUpdate(updateOrdersSql);
+        // check if the cancellation operation is valid
+        if (rs == null) {
+            throw new IllegalArgumentException("invalid cancellation: transaction_id is not existed!");
+        }
+        while (rs.next()) {
+            int transaction_id = rs.getInt("ORDERS.TRANSACTION_ID");
+            String status = rs.getString("ORDERS.STATUS");
+            int id = rs.getInt("ORDERS.ID");
+            String accountId = rs.getString("ACCOUNT.ID");
+            double balance = rs.getDouble("ACCOUNT.BALANCE");
+            double positionAmount = rs.getDouble("POSITION.AMOUNT");
+            double ordersAmount = rs.getDouble("ORDERS.AMOUNT");
+            String symbol = rs.getString("ORDERS.SYMBOL");
+            double price = rs.getDouble("ORDERS.PRICE");
+            Timestamp time = rs.getTimestamp("ORDERS.TIME");
 
-            // in table 'account' and 'position':
-            if (ordersAmount < 0) {
-                // if cancel a sell order: give back seller's shares
-                String updatePositionSql = "UPDATE POSITION SET AMOUNT = " + (positionAmount + ordersAmount) +
-                        "WHERE SYMBOL='" + symbol + "' AND ACCOUNT_ID='"+ accountId +"';";
-                stmt.executeUpdate(updatePositionSql);
+            if (rs.isFirst()) {
+                if (status != "OPEN") {
+                    throw new IllegalArgumentException("invalid cancellation: no open orders in this transaction id!");
+                }
+                outputs.add(new Transaction(transaction_id, "CANCELED", ordersAmount, time, price));
+                // in table 'orders': change status
+                String updateOrdersSql = "UPDATE ORDERS SET STATE = CANCELED WHERE ID=" + id + ";";
+                stmt.executeUpdate(updateOrdersSql);
+                // in table 'account' and 'position':
+                if (ordersAmount < 0) {
+                    // if cancel a sell order: give back seller's shares
+                    String updatePositionSql = "UPDATE POSITION SET AMOUNT = " + (positionAmount + ordersAmount) +
+                            "WHERE SYMBOL='" + symbol + "' AND ACCOUNT_ID='"+ accountId +"';";
+                    stmt.executeUpdate(updatePositionSql);
+                } else {
+                    // if cancel a buy order: refunds buyer's account
+                    String updateAccountSql = "UPDATE ACCOUNT SET BALANCE= "+ (balance + ordersAmount * price) +
+                            "WHERE ID='" + accountId + "';";
+                    stmt.executeUpdate(updateAccountSql);
+                }
             } else {
-                // if cancel a buy order: refunds buyer's account
-                String updateAccountSql = "UPDATE ACCOUNT SET BALANCE= "+ (balance + ordersAmount * price) +
-                        "WHERE ID='" + accountId + "';";
-                stmt.executeUpdate(updateAccountSql);
+                outputs.add(new Transaction(transaction_id, status, ordersAmount, time, price));
             }
         }
         c.commit();
         stmt.close();
         c.close();
+        return outputs;
     }
 
 
