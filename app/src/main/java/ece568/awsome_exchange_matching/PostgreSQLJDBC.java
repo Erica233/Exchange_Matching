@@ -15,6 +15,11 @@ public class PostgreSQLJDBC {
     private static String password;
     private static Connection c = null;
     private static Statement stmt = null;
+
+    public static void setStmt(Statement stmt) {
+        PostgreSQLJDBC.stmt = stmt;
+    }
+
     /**
      * constructor
      * @param _user
@@ -114,6 +119,30 @@ public class PostgreSQLJDBC {
         System.out.println("Create table ORDER successfully");
     }
 
+    public static Connection getC() {
+        return c;
+    }
+
+    public static Statement getStmt() {
+        return stmt;
+    }
+
+    public static String getUrl() {
+        return url;
+    }
+
+    public static String getUser() {
+        return user;
+    }
+
+    public static String getPassword() {
+        return password;
+    }
+
+    public static void setC(Connection c) {
+        PostgreSQLJDBC.c = c;
+    }
+
     public void populateAccount(String accountID, String balance) throws SQLException {
         c = DriverManager
                 .getConnection(url, user, password);
@@ -178,7 +207,8 @@ public class PostgreSQLJDBC {
         String checkSql = "SELECT * FROM ORDERS " +
                 "WHERE SYMBOL='" + symbol + "' AND PRICE>=" + limit_double + " AND AMOUNT>0" +
                 " ORDER BY -PRICE, TIME;";
-        ResultSet rs = stmt.executeQuery(checkSql);
+        Statement st = c.createStatement();
+        ResultSet rs = st.executeQuery(checkSql);
         System.out.println("match orders: ");
         // if has matched orders, find the matched orders and execute one by one
         while (rs.next() && amount_double != 0) {
@@ -205,7 +235,7 @@ public class PostgreSQLJDBC {
                 amount_double += curr_amount;
             } else {
                 System.out.println("amount_double is smaller - then finish matching");
-                matched_amount = amount_double;
+                matched_amount = -amount_double;
                 // update amount of buyer side
                 String executeSql = "UPDATE ORDERS SET AMOUNT=" + (curr_amount + amount_double) +
                         " WHERE ID=" + id + ";";
@@ -228,16 +258,19 @@ public class PostgreSQLJDBC {
             }
             System.out.println("update account and position");
             // update account: add seller's balance
-            String updateSellerSql = "UPDATE ACCOUNT SET BALANCE=" + matched_amount * curr_limit +
+            String updateSellerSql = "UPDATE ACCOUNT SET BALANCE=BALANCE+" + matched_amount * curr_limit +
                     " WHERE ID='" + accountId + "';";
             stmt.executeUpdate(updateSellerSql);
             c.commit();
             // update position: add buyer's amount
-            String updateBuyerSql = "UPDATE POSITION SET AMOUNT=" + matched_amount +
+            String updateBuyerSql = "UPDATE POSITION SET AMOUNT=AMOUNT+" + matched_amount +
                     " WHERE ACCOUNT_ID='" + buyer_acc_id + "';";
             stmt.executeUpdate(updateBuyerSql);
             c.commit();
+            System.out.println("after update account and position");
         }
+        rs.close();
+        st.close();
         // if left any unmatched portion, insert a new order
         if (amount_double != 0) {
             System.out.println("amount left unmatched - insert new orders");
@@ -245,17 +278,6 @@ public class PostgreSQLJDBC {
                     "VALUES (" + new_id + ", CURRENT_TIMESTAMP, '" + symbol + "', " + amount_double + ", '" +
                     accountId + "', " + limit_double + ");";
             stmt.executeUpdate(sql);
-        }
-    }
-
-    public void testHandleBuy(int new_id, String accountId, String symbol, double amount_double, double limit_double) throws SQLException {
-        System.out.println("in testHandleBuy() func:");
-        // place order: deduct balance from buyer's account
-        String accountSql = "SELECT BALANCE FROM ACCOUNT WHERE ID='" + accountId + "';";
-        ResultSet account_rs = stmt.executeQuery(accountSql);
-        System.out.println("deduct balance in buyer's account first");
-        if (!account_rs.next()) {
-            throw new IllegalArgumentException("Invalid transaction: invalid account_id in account table!");
         }
     }
 
@@ -282,7 +304,8 @@ public class PostgreSQLJDBC {
         String checkSql = "SELECT * FROM ORDERS " +
                 "WHERE SYMBOL='" + symbol + "' AND PRICE<=" + limit_double + " AND AMOUNT<0" +
                 " ORDER BY PRICE, TIME;";
-        ResultSet rs = stmt.executeQuery(checkSql);
+        Statement st = c.createStatement();
+        ResultSet rs = st.executeQuery(checkSql);
         System.out.println("match orders: ");
         // if has matched orders, find the matched orders and execute one by one
         while (rs.next() && amount_double != 0) {
@@ -330,24 +353,27 @@ public class PostgreSQLJDBC {
                 c.commit();
                 amount_double = 0;
             }
+
             System.out.println("update account and position");
             // update account: add seller's balance
-            String updateSellerSql = "UPDATE ACCOUNT SET BALANCE=" + matched_amount * curr_limit +
-                    " WHERE ID=" + curr_acc_id + ";";
+            String updateSellerSql = "UPDATE ACCOUNT SET BALANCE=BALANCE+" + (matched_amount * curr_limit) +
+                    " WHERE ID='" + curr_acc_id + "';";
             stmt.executeUpdate(updateSellerSql);
             c.commit();
 
             // update account: credit buyer's balance
-            String updateCreditSql = "UPDATE ACCOUNT SET BALANCE=" + matched_amount * (curr_limit - limit_double) +
-                    " WHERE ID=" + curr_acc_id + ";";
+            String updateCreditSql = "UPDATE ACCOUNT SET BALANCE=BALANCE+" + matched_amount * (limit_double - curr_limit) +
+                    " WHERE ID='" + accountId + "';";
             stmt.executeUpdate(updateCreditSql);
             c.commit();
             // update position: add buyer's amount
-            String updateBuyerSql = "UPDATE POSITION SET AMOUNT=" + matched_amount +
+            String updateBuyerSql = "UPDATE POSITION SET AMOUNT=AMOUNT+" + matched_amount +
                     " WHERE ACCOUNT_ID='" + accountId + "';";
             stmt.executeUpdate(updateBuyerSql);
             c.commit();
         }
+        rs.close();
+        st.close();
         // if left any unmatched portion, insert a new order
         if (amount_double != 0) {
             System.out.println("amount left unmatched - insert new orders");
