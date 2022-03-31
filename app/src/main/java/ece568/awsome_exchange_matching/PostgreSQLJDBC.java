@@ -164,7 +164,9 @@ public class PostgreSQLJDBC {
             double curr_amount = rs.getDouble("amount");
             double curr_limit = rs.getDouble("price");
             int buyer_acc_id = rs.getInt("account_id");
+            double matched_amount = 0;
             if (-amount_double >= curr_amount) {
+                matched_amount = curr_amount;
                 // update buyer side to executed
                 String executeSql = "UPDATE ORDERS SET STATE=EXECUTED WHERE ID=" + id + ";";
                 stmt.executeUpdate(executeSql);
@@ -177,6 +179,7 @@ public class PostgreSQLJDBC {
                 c.commit();
                 amount_double += curr_amount;
             } else {
+                matched_amount = amount_double;
                 // update amount of buyer side
                 String executeSql = "UPDATE ORDERS SET AMOUNT=" + (curr_amount + amount_double) +
                         " WHERE ID=" + id + ";";
@@ -198,12 +201,12 @@ public class PostgreSQLJDBC {
                 amount_double = 0;
             }
             // update account: add seller's balance
-            String updateSellerSql = "UPDATE ACCOUNT SET BALANCE=" + curr_amount * curr_limit +
+            String updateSellerSql = "UPDATE ACCOUNT SET BALANCE=" + matched_amount * curr_limit +
                     " WHERE ID=" + accountId + ";";
             stmt.executeUpdate(updateSellerSql);
             c.commit();
             // update position: add buyer's amount
-            String updateBuyerSql = "UPDATE POSITION SET AMOUNT=" + curr_amount +
+            String updateBuyerSql = "UPDATE POSITION SET AMOUNT=" + matched_amount +
                     " WHERE ACCOUNT_ID=" + buyer_acc_id + ";";
             stmt.executeUpdate(updateBuyerSql);
             c.commit();
@@ -233,7 +236,7 @@ public class PostgreSQLJDBC {
         // execute order: match orders and credit seller's account
         String checkSql = "SELECT * FROM ORDERS " +
                 "WHERE SYMBOL='" + symbol + "' AND PRICE<=" + limit_double +
-                " ORDER BY -PRICE AND TIME;";
+                " ORDER BY PRICE AND TIME;";
         ResultSet rs = stmt.executeQuery(checkSql);
         // if has matched orders, find the matched orders and execute one by one
         while (rs.next() && amount_double != 0) {
@@ -241,13 +244,15 @@ public class PostgreSQLJDBC {
             int curr_tran_id = rs.getInt("transaction_id");
             double curr_amount = rs.getDouble("amount");
             double curr_limit = rs.getDouble("price");
-            int buyer_acc_id = rs.getInt("account_id");
-            if (-amount_double >= curr_amount) {
-                // update buyer side to executed
+            int curr_acc_id = rs.getInt("account_id");
+            double matched_amount = 0;
+            if (amount_double >= -curr_amount) {
+                matched_amount = -curr_amount;
+                // update seller side to executed
                 String executeSql = "UPDATE ORDERS SET STATE=EXECUTED WHERE ID=" + id + ";";
                 stmt.executeUpdate(executeSql);
                 c.commit();
-                // insert seller side - executed
+                // insert buyer side - executed
                 String insertSql = "INSERT INTO ORDERS (TRANSACTION_ID, TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE, STATUS) " +
                         "VALUES (" + new_id + ", CURRENT_TIMESTAMP, '" + symbol + "', " + (-curr_amount) + ", '" +
                         accountId + "', " + curr_limit + ", EXECUTED);";
@@ -255,19 +260,20 @@ public class PostgreSQLJDBC {
                 c.commit();
                 amount_double += curr_amount;
             } else {
-                // update amount of buyer side
+                matched_amount = amount_double;
+                // update amount of existed side
                 String executeSql = "UPDATE ORDERS SET AMOUNT=" + (curr_amount + amount_double) +
                         " WHERE ID=" + id + ";";
                 stmt.executeUpdate(executeSql);
                 c.commit();
-                // insert buyer side - executed
+                // insert existed side - executed
                 String insertSql = "INSERT INTO ORDERS (TRANSACTION_ID, TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE, STATUS) " +
                         "VALUES (" + curr_tran_id + ", CURRENT_TIMESTAMP, '" + symbol + "', " + (-amount_double) + ", '" +
-                        buyer_acc_id + "', " + curr_limit + ", EXECUTED);";
+                        curr_acc_id + "', " + curr_limit + ", EXECUTED);";
                 stmt.executeUpdate(insertSql);
                 c.commit();
 
-                // insert seller side - executed
+                // insert populated side - executed
                 String insertSql2 = "INSERT INTO ORDERS (TRANSACTION_ID, TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE, STATUS) " +
                         "VALUES (" + new_id + ", CURRENT_TIMESTAMP, '" + symbol + "', " + amount_double + ", '" +
                         accountId + "', " + curr_limit + ", EXECUTED);";
@@ -276,13 +282,19 @@ public class PostgreSQLJDBC {
                 amount_double = 0;
             }
             // update account: add seller's balance
-            String updateSellerSql = "UPDATE ACCOUNT SET BALANCE=" + curr_amount * curr_limit +
-                    " WHERE ID=" + accountId + ";";
+            String updateSellerSql = "UPDATE ACCOUNT SET BALANCE=" + matched_amount * curr_limit +
+                    " WHERE ID=" + curr_acc_id + ";";
             stmt.executeUpdate(updateSellerSql);
             c.commit();
+
+            // update account: credit buyer's balance
+            String updateCreditSql = "UPDATE ACCOUNT SET BALANCE=" + matched_amount * (curr_limit - limit_double) +
+                    " WHERE ID=" + curr_acc_id + ";";
+            stmt.executeUpdate(updateCreditSql);
+            c.commit();
             // update position: add buyer's amount
-            String updateBuyerSql = "UPDATE POSITION SET AMOUNT=" + curr_amount +
-                    " WHERE ACCOUNT_ID=" + buyer_acc_id + ";";
+            String updateBuyerSql = "UPDATE POSITION SET AMOUNT=" + matched_amount +
+                    " WHERE ACCOUNT_ID=" + accountId + ";";
             stmt.executeUpdate(updateBuyerSql);
             c.commit();
         }
@@ -293,6 +305,10 @@ public class PostgreSQLJDBC {
                     accountId + "', " + limit_double + ");";
             stmt.executeUpdate(sql);
         }
+    }
+
+    public void matchOrders() {
+
     }
 
     public void populateOrder(String accountId, String symbol, String amount, String limit) throws SQLException {
