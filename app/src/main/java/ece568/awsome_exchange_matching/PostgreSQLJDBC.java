@@ -155,10 +155,15 @@ public class PostgreSQLJDBC {
     }
 
     public void handleSell(int new_id, String accountId, String symbol, double amount_double, double limit_double) throws SQLException {
+        System.out.println("in handleSell() func:");
         // place order: deduct shares from seller's position
         String positionSql = "SELECT AMOUNT FROM POSITION " +
                 "WHERE ACCOUNT_ID='" + accountId + "' AND SYMBOL='" + symbol + "';";
         ResultSet position_rs = stmt.executeQuery(positionSql);
+        System.out.println("deduct amount in seller's account first");
+        if (!position_rs.next()) {
+            throw new IllegalArgumentException("Invalid transaction: invalid account_id with symbol in position table!");
+        }
         if ((position_rs.getDouble("AMOUNT") + amount_double) < 0) {
             throw new IllegalArgumentException("Invalid transaction: insufficient amount of shares!");
         } else {
@@ -170,8 +175,8 @@ public class PostgreSQLJDBC {
 
         // execute order: match orders and credit seller's account
         String checkSql = "SELECT * FROM ORDERS " +
-                "WHERE SYMBOL='" + symbol + "' AND PRICE>=" + limit_double +
-                " ORDER BY -PRICE AND TIME;";
+                "WHERE SYMBOL='" + symbol + "' AND PRICE>=" + limit_double + " AND AMOUNT>0" +
+                " ORDER BY -PRICE, TIME;";
         ResultSet rs = stmt.executeQuery(checkSql);
         // if has matched orders, find the matched orders and execute one by one
         while (rs.next() && amount_double != 0) {
@@ -218,12 +223,12 @@ public class PostgreSQLJDBC {
             }
             // update account: add seller's balance
             String updateSellerSql = "UPDATE ACCOUNT SET BALANCE=" + matched_amount * curr_limit +
-                    " WHERE ID=" + accountId + ";";
+                    " WHERE ID='" + accountId + "';";
             stmt.executeUpdate(updateSellerSql);
             c.commit();
             // update position: add buyer's amount
             String updateBuyerSql = "UPDATE POSITION SET AMOUNT=" + matched_amount +
-                    " WHERE ACCOUNT_ID=" + buyer_acc_id + ";";
+                    " WHERE ACCOUNT_ID='" + buyer_acc_id + "';";
             stmt.executeUpdate(updateBuyerSql);
             c.commit();
         }
@@ -236,10 +241,21 @@ public class PostgreSQLJDBC {
         }
     }
 
+    public void testHandleBuy(int new_id, String accountId, String symbol, double amount_double, double limit_double) throws SQLException {
+        System.out.println("in testHandleBuy() func:");
+        // place order: deduct balance from buyer's account
+        String accountSql = "SELECT BALANCE FROM ACCOUNT WHERE ID='" + accountId + "';";
+        ResultSet account_rs = stmt.executeQuery(accountSql);
+        System.out.println("deduct balance in buyer's account first");
+        if (!account_rs.next()) {
+            throw new IllegalArgumentException("Invalid transaction: invalid account_id in account table!");
+        }
+    }
+
     public void handleBuy(int new_id, String accountId, String symbol, double amount_double, double limit_double) throws SQLException {
         System.out.println("in handleBuy() func:");
         // place order: deduct balance from buyer's account
-        String accountSql = "SELECT BALANCE FROM ACCOUNT WHERE ID=" + accountId + ";";
+        String accountSql = "SELECT BALANCE FROM ACCOUNT WHERE ID='" + accountId + "';";
         ResultSet account_rs = stmt.executeQuery(accountSql);
         System.out.println("deduct balance in buyer's account first");
         if (!account_rs.next()) {
@@ -249,17 +265,18 @@ public class PostgreSQLJDBC {
             throw new IllegalArgumentException("Invalid transaction: insufficient funds!");
         } else {
             String sql = "UPDATE ACCOUNT SET BALANCE=" + (account_rs.getDouble("BALANCE") - amount_double * limit_double) +
-                    " WHERE ID=" + accountId + ";";
+                    " WHERE ID='" + accountId + "';";
             stmt.executeUpdate(sql);
             c.commit();
         }
 
-        System.out.println("match orders: ");
+        System.out.println("select matched orders: ");
         // execute order: match orders and credit seller's account
         String checkSql = "SELECT * FROM ORDERS " +
-                "WHERE SYMBOL='" + symbol + "' AND PRICE<=" + limit_double +
-                " ORDER BY PRICE AND TIME;";
+                "WHERE SYMBOL='" + symbol + "' AND PRICE<=" + limit_double + " AND AMOUNT<0" +
+                " ORDER BY PRICE, TIME;";
         ResultSet rs = stmt.executeQuery(checkSql);
+        System.out.println("match orders: ");
         // if has matched orders, find the matched orders and execute one by one
         while (rs.next() && amount_double != 0) {
             int id = rs.getInt("ID");
@@ -319,7 +336,7 @@ public class PostgreSQLJDBC {
             c.commit();
             // update position: add buyer's amount
             String updateBuyerSql = "UPDATE POSITION SET AMOUNT=" + matched_amount +
-                    " WHERE ACCOUNT_ID=" + accountId + ";";
+                    " WHERE ACCOUNT_ID='" + accountId + "';";
             stmt.executeUpdate(updateBuyerSql);
             c.commit();
         }
@@ -346,8 +363,8 @@ public class PostgreSQLJDBC {
         int new_id = 1;
         if (rs_id.first()) {
             new_id = rs_id.getInt("TRANSACTION_ID") + 1;
-            System.out.println("new_tran_id: " + new_id);
         }
+        System.out.println("new_tran_id: " + new_id);
 
         // check if the order is valid and if any matched orders
         double amount_double = Double.parseDouble(amount);
@@ -359,6 +376,7 @@ public class PostgreSQLJDBC {
         } else {
             System.out.println("handleBuy");
             handleBuy(new_id, accountId, symbol, amount_double, limit_double);
+            //testHandleBuy(new_id, accountId, symbol, amount_double, limit_double);
         }
         System.out.println("output: symbol=" + symbol + ", amount_double=" + amount_double + ", limit_double=" + limit_double + ", new_id=" + new_id);
         outputs.add(new Transaction(symbol, amount_double, limit_double, new_id));

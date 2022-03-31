@@ -35,5 +35,5 @@
 
 <?xml version="1.0" encoding="UTF-8"?>
 <transactions id="8">
-    <order sym="USD" amount="500" limit="135"/>
+    <order sym="USD" amount="550" limit="135"/>
 </transactions>
