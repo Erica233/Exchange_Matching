@@ -4,6 +4,9 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import static java.sql.ResultSet.CONCUR_READ_ONLY;
+import static java.sql.ResultSet.TYPE_SCROLL_INSENSITIVE;
+
 public class PostgreSQLJDBC {
     private static PostgreSQLJDBC postgreJDBC = null;
 
@@ -234,9 +237,14 @@ public class PostgreSQLJDBC {
     }
 
     public void handleBuy(int new_id, String accountId, String symbol, double amount_double, double limit_double) throws SQLException {
+        System.out.println("in handleBuy() func:");
         // place order: deduct balance from buyer's account
         String accountSql = "SELECT BALANCE FROM ACCOUNT WHERE ID=" + accountId + ";";
         ResultSet account_rs = stmt.executeQuery(accountSql);
+        System.out.println("deduct balance in buyer's account first");
+        if (!account_rs.next()) {
+            throw new IllegalArgumentException("Invalid transaction: invalid account_id in account table!");
+        }
         if ((account_rs.getDouble("BALANCE") - amount_double * limit_double) < 0) {
             throw new IllegalArgumentException("Invalid transaction: insufficient funds!");
         } else {
@@ -246,6 +254,7 @@ public class PostgreSQLJDBC {
             c.commit();
         }
 
+        System.out.println("match orders: ");
         // execute order: match orders and credit seller's account
         String checkSql = "SELECT * FROM ORDERS " +
                 "WHERE SYMBOL='" + symbol + "' AND PRICE<=" + limit_double +
@@ -257,9 +266,11 @@ public class PostgreSQLJDBC {
             int curr_tran_id = rs.getInt("transaction_id");
             double curr_amount = rs.getDouble("amount");
             double curr_limit = rs.getDouble("price");
-            int curr_acc_id = rs.getInt("account_id");
+            String curr_acc_id = rs.getString("account_id");
             double matched_amount = 0;
+            System.out.println("id=" + id + ", curr_tran_id=" + curr_tran_id + ", curr_amount=" + curr_amount + ", curr_limit=" + curr_limit + ", curr_acc_id=" + curr_acc_id);
             if (amount_double >= -curr_amount) {
+                System.out.println("amount_double is larger then matched order");
                 matched_amount = -curr_amount;
                 // update seller side to executed
                 String executeSql = "UPDATE ORDERS SET STATE=EXECUTED WHERE ID=" + id + ";";
@@ -273,6 +284,7 @@ public class PostgreSQLJDBC {
                 c.commit();
                 amount_double += curr_amount;
             } else {
+                System.out.println("amount_double is smaller - then finish matching");
                 matched_amount = amount_double;
                 // update amount of existed side
                 String executeSql = "UPDATE ORDERS SET AMOUNT=" + (curr_amount + amount_double) +
@@ -313,6 +325,7 @@ public class PostgreSQLJDBC {
         }
         // if left any unmatched portion, insert a new order
         if (amount_double != 0) {
+            System.out.println("amount left unmatched - insert new orders");
             String sql = "INSERT INTO ORDERS (TRANSACTION_ID, TIME, SYMBOL, AMOUNT, ACCOUNT_ID, PRICE) " +
                     "VALUES (" + new_id + ", CURRENT_TIMESTAMP, '" + symbol + "', " + amount_double + ", '" +
                     accountId + "', " + limit_double + ");";
@@ -320,29 +333,34 @@ public class PostgreSQLJDBC {
         }
     }
 
-    public void matchOrders() {
-
-    }
-
     public ArrayList<Transaction> populateOrder(String accountId, String symbol, String amount, String limit) throws SQLException {
+        System.out.println("in populatOrder() func:");
         c = DriverManager.getConnection(url, user, password);
         c.setAutoCommit(false);
-        stmt = c.createStatement();
+        stmt = c.createStatement(TYPE_SCROLL_INSENSITIVE, CONCUR_READ_ONLY);
         ArrayList<Transaction> outputs = new ArrayList<Transaction>();
 
         // get next transaction id
         String getSql = "SELECT TRANSACTION_ID FROM ORDERS ORDER BY -ID LIMIT 1;";
         ResultSet rs_id = stmt.executeQuery(getSql);
-        int new_id = rs_id.getInt("TRANSACTION_ID") + 1;
+        int new_id = 1;
+        if (rs_id.first()) {
+            new_id = rs_id.getInt("TRANSACTION_ID") + 1;
+            System.out.println("new_tran_id: " + new_id);
+        }
 
         // check if the order is valid and if any matched orders
         double amount_double = Double.parseDouble(amount);
         double limit_double = Double.parseDouble(limit);
+        System.out.println("amount_double=" + amount_double + ", limit_double=" + limit_double);
         if (amount_double < 0) {
+            System.out.println("handleSell");
             handleSell(new_id, accountId, symbol, amount_double, limit_double);
         } else {
+            System.out.println("handleBuy");
             handleBuy(new_id, accountId, symbol, amount_double, limit_double);
         }
+        System.out.println("output: symbol=" + symbol + ", amount_double=" + amount_double + ", limit_double=" + limit_double + ", new_id=" + new_id);
         outputs.add(new Transaction(symbol, amount_double, limit_double, new_id));
         rs_id.close();
         stmt.close();
@@ -380,9 +398,10 @@ public class PostgreSQLJDBC {
                 "AND ACCOUNT.ID=POSITION.ACCOUNT_ID ORDER BY -STATUS;";
         ResultSet rs = stmt.executeQuery(selectSql);
         // check if the cancellation operation is valid
-        if (rs == null) {
+        if (!rs.first()) {
             throw new IllegalArgumentException("invalid cancellation: transaction_id is not existed!");
         }
+        rs.beforeFirst();
         while (rs.next()) {
             int transaction_id = rs.getInt("ORDERS.TRANSACTION_ID");
             String status = rs.getString("ORDERS.STATUS");
