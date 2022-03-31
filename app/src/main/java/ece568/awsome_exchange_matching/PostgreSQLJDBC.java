@@ -311,10 +311,11 @@ public class PostgreSQLJDBC {
 
     }
 
-    public void populateOrder(String accountId, String symbol, String amount, String limit) throws SQLException {
+    public ArrayList<Transaction> populateOrder(String accountId, String symbol, String amount, String limit) throws SQLException {
         c = DriverManager.getConnection(url, user, password);
         c.setAutoCommit(false);
         stmt = c.createStatement();
+        ArrayList<Transaction> outputs = new ArrayList<Transaction>();
 
         // get next transaction id
         String getSql = "SELECT TRANSACTION_ID FROM ORDERS ORDER BY -ID LIMIT 1;";
@@ -329,11 +330,12 @@ public class PostgreSQLJDBC {
         } else {
             handleBuy(new_id, accountId, symbol, amount_double, limit_double);
         }
-
+        outputs.add(new Transaction(symbol, amount_double, limit_double, new_id));
         rs_id.close();
         stmt.close();
         c.commit();
         c.close();
+        return outputs;
     }
 
     public ArrayList<Transaction> queryTransaction(String trans_id) throws SQLException {
