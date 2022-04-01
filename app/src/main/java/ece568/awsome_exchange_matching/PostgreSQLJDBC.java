@@ -1,6 +1,11 @@
 package ece568.awsome_exchange_matching;
 
 import java.sql.*;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -420,7 +425,7 @@ public class PostgreSQLJDBC {
         return outputs;
     }
 
-    public ArrayList<Transaction> queryTransaction(String accountId, String trans_id) throws SQLException {
+    public ArrayList<Transaction> queryTransaction(String accountId, String trans_id) throws SQLException, ParseException {
         c = DriverManager.getConnection(url, user, password);
         c.setAutoCommit(false);
         stmt = c.createStatement();
@@ -444,6 +449,10 @@ public class PostgreSQLJDBC {
             System.out.println("trans_id=" + rs.getInt("TRANSACTION_ID") + ", status=" +
                     rs.getString("STATUS") + ", amount=" + rs.getDouble("AMOUNT") + ", time=" +
                     rs.getTimestamp("TIME") + ", price=" + rs.getDouble("PRICE"));
+            String time_string = rs.getTimestamp("TIME").toString()+"+0400";
+            DateTimeFormatter dtf  = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSZ");
+            ZonedDateTime     zdt  = ZonedDateTime.parse(time_string,dtf);
+            System.out.println(zdt.toInstant().toEpochMilli());
         }
         rs.close();
         stmt.close();

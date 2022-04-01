@@ -3,6 +3,7 @@ package ece568.awsome_exchange_matching;
 import org.junit.jupiter.api.Test;
 
 import java.sql.*;
+import java.text.ParseException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -77,7 +78,7 @@ class PostgreSQLJDBCTest {
     }
 
     @Test
-    void queryTransaction() throws SQLException {
+    void queryTransaction() throws SQLException, ParseException {
         postgreJDBC = createdb();
         postgreJDBC.queryTransaction("1", "1");
         postgreJDBC.queryTransaction("2", "2");

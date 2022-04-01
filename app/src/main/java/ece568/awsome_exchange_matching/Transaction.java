@@ -40,7 +40,7 @@ public class Transaction {
         return amount;
     }
 
-    public Timestamp getTime() {
+    public long getTime() {
         return time;
     }
 
