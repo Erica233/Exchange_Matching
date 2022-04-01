@@ -12,11 +12,13 @@ public class Client {
         // number
         int counter = 0;
         long start2 = System.currentTimeMillis();
-        while (counter < 50) {
+        while (counter < 500) {
             ClientRunnable clientRunnable = new ClientRunnable();
             try {
                 clientRunnable.id = counter;
-                clientRunnable.socket = new Socket("localhost", 12345);
+                //vcm-24065.vm.duke.edu
+                //vcm-26335.vm.duke.edu
+                clientRunnable.socket = new Socket("vcm-26335.vm.duke.edu", 12345);
                 new Thread(clientRunnable).start();
             }catch(IOException e){
                 System.out.println("Thread-" + counter + ": cannot connect!");
@@ -34,7 +36,13 @@ class ClientRunnable implements Runnable{
     @Override
     public void run() {
         try {
-            File inputFile = new File("scripts/input.txt");
+            File inputFile;
+            if (id <=1){
+                inputFile = new File("scripts/input2-1.txt");
+            }
+            else {
+                inputFile = new File("scripts/input2.txt");
+            }
             // writing to server
             PrintWriter out = new PrintWriter(
                     socket.getOutputStream(), true);

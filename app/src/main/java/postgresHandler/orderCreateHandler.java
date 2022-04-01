@@ -15,7 +15,7 @@ public class orderCreateHandler implements PostgresHandler{
     public orderCreateHandler(Node _n, String _accountID){
         try {
             postgreJDBC = postgreJDBC.getInstance("postgres", "postgres",
-                    "jdbc:postgresql://localhost:4444/postgres");
+                    "jdbc:postgresql://database:5432/postgres");
             //jdbc:postgresql://database:5432/postgres
         } catch (Exception e) {
             e.printStackTrace();
