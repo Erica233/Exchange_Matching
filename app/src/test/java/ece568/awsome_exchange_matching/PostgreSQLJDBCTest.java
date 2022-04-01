@@ -84,7 +84,8 @@ class PostgreSQLJDBCTest {
     @Test
     void cancelTransaction() throws SQLException {
         postgreJDBC = createdb();
-        postgreJDBC.cancelTransaction("99");
-        //postgreJDBC.cancelTransaction("1");
+        //postgreJDBC.cancelTransaction("1", "99");
+        //postgreJDBC.cancelTransaction("99", "1");
+        postgreJDBC.cancelTransaction("1", "1");
     }
 }

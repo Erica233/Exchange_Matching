@@ -54,7 +54,7 @@ public class queryHandler implements PostgresHandler{
     public String implementPSQL() {
         String output = null;
         try {
-            transactions = postgreJDBC.queryTransaction(transID);
+            transactions = postgreJDBC.queryTransaction(accountID, transID);
         }catch(Exception e){
             output = e.getMessage();
         }finally{

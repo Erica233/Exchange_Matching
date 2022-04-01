@@ -420,10 +420,19 @@ public class PostgreSQLJDBC {
         return outputs;
     }
 
-    public ArrayList<Transaction> queryTransaction(String trans_id) throws SQLException {
+    public ArrayList<Transaction> queryTransaction(String accountId, String trans_id) throws SQLException {
         c = DriverManager.getConnection(url, user, password);
         c.setAutoCommit(false);
         stmt = c.createStatement();
+
+        // check if this account has a transaction with given transaction id
+        String checkSql = "SELECT * FROM ORDERS WHERE ACCOUNT_ID='" + accountId +
+                "' AND TRANSACTION_ID=" + trans_id + ";";
+        ResultSet check_rs = stmt.executeQuery(checkSql);
+        if (!check_rs.next()) {
+            throw new IllegalArgumentException("Invalid query: no transaction with given transaction id under this account!");
+        }
+
         String sql = "SELECT TRANSACTION_ID, STATUS, AMOUNT, TIME, PRICE FROM ORDERS " +
                 "WHERE TRANSACTION_ID=" + trans_id + ";";
         ResultSet rs = stmt.executeQuery(sql);
@@ -439,14 +448,23 @@ public class PostgreSQLJDBC {
         return outputs;
     }
 
-    public ArrayList<Transaction> cancelTransaction(String trans_id) throws SQLException, IllegalArgumentException {
+    public ArrayList<Transaction> cancelTransaction(String accountId, String trans_id) throws SQLException, IllegalArgumentException {
         c = DriverManager.getConnection(url, user, password);
         c.setAutoCommit(false);
-        stmt = c.createStatement();
+        stmt = c.createStatement(TYPE_SCROLL_INSENSITIVE, CONCUR_READ_ONLY);
         ArrayList<Transaction> outputs = new ArrayList<Transaction>();
+
+        // check if this account has a transaction with given transaction id
+        String checkSql = "SELECT * FROM ORDERS WHERE ACCOUNT_ID='" + accountId +
+                "' AND TRANSACTION_ID=" + trans_id + ";";
+        ResultSet check_rs = stmt.executeQuery(checkSql);
+        if (!check_rs.next()) {
+            throw new IllegalArgumentException("Invalid query: no transaction with given transaction id under this account!");
+        }
+
         String selectSql = "SELECT * FROM ACCOUNT, POSITION, ORDERS " +
                 "WHERE TRANSACTION_ID=" + trans_id + " AND ACCOUNT.ID=ORDERS.ACCOUNT_ID " +
-                "AND ACCOUNT.ID=POSITION.ACCOUNT_ID ORDER BY -STATUS;";
+                "AND ACCOUNT.ID=POSITION.ACCOUNT_ID ORDER BY STATUS DESC;";
         ResultSet rs = stmt.executeQuery(selectSql);
         // check if the cancellation operation is valid
         if (!rs.first()) {
@@ -457,7 +475,7 @@ public class PostgreSQLJDBC {
             int transaction_id = rs.getInt("ORDERS.TRANSACTION_ID");
             String status = rs.getString("ORDERS.STATUS");
             int id = rs.getInt("ORDERS.ID");
-            String accountId = rs.getString("ACCOUNT.ID");
+            //String accountId = rs.getString("ACCOUNT.ID");
             double balance = rs.getDouble("ACCOUNT.BALANCE");
             double positionAmount = rs.getDouble("POSITION.AMOUNT");
             double ordersAmount = rs.getDouble("ORDERS.AMOUNT");
@@ -469,7 +487,7 @@ public class PostgreSQLJDBC {
                 if (status != "'OPEN'") {
                     throw new IllegalArgumentException("invalid cancellation: no open orders in this transaction id!");
                 }
-                outputs.add(new Transaction(transaction_id, "CANCELED", ordersAmount, time, price));
+                outputs.add(new Transaction(transaction_id, "'CANCELED'", ordersAmount, time, price));
                 // in table 'orders': change status
                 String updateOrdersSql = "UPDATE ORDERS SET STATUS='CANCELED' WHERE ID=" + id + ";";
                 stmt.executeUpdate(updateOrdersSql);
