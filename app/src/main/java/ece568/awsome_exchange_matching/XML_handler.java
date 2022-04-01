@@ -65,16 +65,10 @@ public class XML_handler implements Runnable{
             String res = writer.toString();
             bufferedWriter.write(res.length()+"\n"+res);
             bufferedWriter.flush();
-
-        }catch(ParserConfigurationException e){
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (SAXException e) {
-            e.printStackTrace();
-        } catch (TransformerConfigurationException e) {
-            e.printStackTrace();
-        } catch (TransformerException e) {
+        } catch(ParserConfigurationException
+                | IOException
+                | SAXException
+                | TransformerException e){
             e.printStackTrace();
         }
     }
@@ -105,6 +99,7 @@ public class XML_handler implements Runnable{
                     throw new IllegalArgumentException("Invalid node name: " + n.getNodeName());
             }
         }
+
     }
 
     /**
@@ -392,7 +387,9 @@ public class XML_handler implements Runnable{
      * implement XMLhandler for each client node in separate thread
      */
     @Override
+    //synchronized
     public void run() {
+
         PrintWriter out = null;
         BufferedReader in = null;
         InputStream inStream;
@@ -400,7 +397,7 @@ public class XML_handler implements Runnable{
         try {
             // get the outputstream of client
             //out = new PrintWriter(clientSocket.getOutputStream(), true);
-            while(true) {
+
                 OutputStream outputStream = clientSocket.getOutputStream();
                 OutputStreamWriter outputStreamWriter = new OutputStreamWriter(outputStream);
                 BufferedWriter bufferedWriter = new BufferedWriter(outputStreamWriter);
@@ -422,15 +419,13 @@ public class XML_handler implements Runnable{
                     line++;
                 }
 
-                System.out.printf(" Sent from the client: %s\n",
-                        content);
+                //System.out.printf(" Sent from the client: %s\n", content);
 
                 String xml = filterBlankXMl(content);
                 inStream = new ByteArrayInputStream(
                         xml.getBytes(StandardCharsets.UTF_8));
                 getXML(inStream, bufferedWriter);
                 inStream.close();
-            }
         }
         catch (IOException e) {
             e.printStackTrace();
@@ -438,13 +433,13 @@ public class XML_handler implements Runnable{
         finally {
             //close socket
             try {
+                if (in != null) {
+                    in.close();
+                }
                 if (out != null) {
                     out.close();
                 }
-                if (in != null) {
-                    in.close();
-                    clientSocket.close();
-                }
+                clientSocket.close();
             }
             catch (IOException e) {
                 e.printStackTrace();
