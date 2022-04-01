@@ -389,7 +389,7 @@ public class PostgreSQLJDBC {
         }
     }
 
-    public int populateOrder(String accountId, String symbol, String amount, String limit) throws SQLException {
+    public int populateOrder(String accountId, String symbol, String amount, String limit) throws SQLException, IllegalArgumentException {
         System.out.println("in populatOrder() func:");
         c = DriverManager.getConnection(url, user, password);
         c.setAutoCommit(false);
@@ -412,10 +412,13 @@ public class PostgreSQLJDBC {
         if (amount_double < 0) {
             System.out.println("handleSell");
             handleSell(new_id, accountId, symbol, amount_double, limit_double);
-        } else {
+        } else if(amount_double > 0) {
             System.out.println("handleBuy");
             handleBuy(new_id, accountId, symbol, amount_double, limit_double);
             //testHandleBuy(new_id, accountId, symbol, amount_double, limit_double);
+        }
+        else{ //amount=0
+            throw new IllegalArgumentException("Amount cannot be zero!");
         }
         System.out.println("output: symbol=" + symbol + ", amount_double=" + amount_double + ", limit_double=" + limit_double + ", new_id=" + new_id);
         //outputs.add(new Transaction(symbol, amount_double, limit_double, new_id));
@@ -446,6 +449,7 @@ public class PostgreSQLJDBC {
             outputs.add(new Transaction(rs.getInt("TRANSACTION_ID"),
                     rs.getString("STATUS"), rs.getDouble("AMOUNT"),
                     rs.getTimestamp("TIME"), rs.getDouble("PRICE")));
+
             System.out.println("trans_id=" + rs.getInt("TRANSACTION_ID") + ", status=" +
                     rs.getString("STATUS") + ", amount=" + rs.getDouble("AMOUNT") + ", time=" +
                     rs.getTimestamp("TIME") + ", price=" + rs.getDouble("PRICE"));

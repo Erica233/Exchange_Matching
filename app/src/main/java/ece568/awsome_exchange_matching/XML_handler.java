@@ -62,7 +62,8 @@ public class XML_handler implements Runnable{
             tf.setOutputProperty(OutputKeys.INDENT, "yes");
             tf.transform(new DOMSource(result_doc), result);
             //convert XML to string, send to client
-            bufferedWriter.write(writer.toString());
+            String res = writer.toString();
+            bufferedWriter.write(res.length()+"\n"+res);
             bufferedWriter.flush();
 
         }catch(ParserConfigurationException e){
@@ -358,21 +359,22 @@ public class XML_handler implements Runnable{
     private void handleQueryOrderSuccess(queryHandler myHandler, String tag, Element results){
         Element query_order = result_doc.createElement(tag);
         query_order.setAttribute("id", myHandler.getTransID());
+        System.out.println("transactions length: "+ myHandler.transactions.size());
         for(int i = 0; i < myHandler.transactions.size(); i++){
             Transaction t = myHandler.transactions.get(i);
             switch(t.getStatus()){
-                case "open":
+                case "OPEN":
                     Element open_order = result_doc.createElement("open");
                     open_order.setAttribute("shares", Double.toString(t.getAmount()));
                     query_order.appendChild(open_order);
                     break;
-                case "canceled":
+                case "CANCELED":
                     Element canceled_order = result_doc.createElement("canceled");
                     canceled_order.setAttribute("shares", Double.toString(t.getAmount()));
                     canceled_order.setAttribute("time", Long.toString(t.getTime()));
                     query_order.appendChild(canceled_order);
                     break;
-                case "executed":
+                case "EXECUTED":
                     Element executed_order = result_doc.createElement("executed");
                     executed_order.setAttribute("shares", Double.toString(t.getAmount()));
                     executed_order.setAttribute("price", Double.toString(t.getPrice()));

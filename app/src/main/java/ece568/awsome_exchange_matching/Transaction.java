@@ -26,7 +26,15 @@ public class Transaction {
         transaction_id = _transaction_id;
         status = _status;
         amount = _amount;
-        String time_string = _time.toString()+"+0400";
+        String time_string = _time.toString();
+        if (time_string.length() < 26){
+            int i = 26 - time_string.length();
+            while(i != 0){
+                time_string += "0";
+                i--;
+            }
+        }
+        time_string = _time.toString()+"+0400";
         DateTimeFormatter dtf  = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSZ");
         ZonedDateTime zdt  = ZonedDateTime.parse(time_string,dtf);
         time = zdt.toInstant().toEpochMilli();
