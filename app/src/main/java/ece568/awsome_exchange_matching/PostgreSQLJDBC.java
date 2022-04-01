@@ -441,6 +441,9 @@ public class PostgreSQLJDBC {
             outputs.add(new Transaction(rs.getInt("TRANSACTION_ID"),
                     rs.getString("STATUS"), rs.getDouble("AMOUNT"),
                     rs.getTimestamp("TIME"), rs.getDouble("PRICE")));
+            System.out.println("trans_id=" + rs.getInt("TRANSACTION_ID") + ", status=" +
+                    rs.getString("STATUS") + ", amount=" + rs.getDouble("AMOUNT") + ", time=" +
+                    rs.getTimestamp("TIME") + ", price=" + rs.getDouble("PRICE"));
         }
         rs.close();
         stmt.close();
@@ -462,39 +465,38 @@ public class PostgreSQLJDBC {
             throw new IllegalArgumentException("Invalid query: no transaction with given transaction id under this account!");
         }
 
-        String selectSql = "SELECT * FROM ACCOUNT, POSITION, ORDERS " +
+        String selectSql = "SELECT ORDERS.TRANSACTION_ID AS O_T_ID, ORDERS.STATUS AS O_STATUS, ORDERS.ID AS O_ID, " +
+                "ACCOUNT.BALANCE AS A_BALANCE, POSITION.AMOUNT AS P_AMOUNT, ORDERS.AMOUNT AS O_AMOUNT, " +
+                "ORDERS.SYMBOL AS O_SYMBOL, ORDERS.PRICE AS O_PRICE, ORDERS.TIME AS O_TIME" +
+                " FROM ACCOUNT, POSITION, ORDERS " +
                 "WHERE TRANSACTION_ID=" + trans_id + " AND ACCOUNT.ID=ORDERS.ACCOUNT_ID " +
                 "AND ACCOUNT.ID=POSITION.ACCOUNT_ID ORDER BY STATUS DESC;";
-        ResultSet rs = stmt.executeQuery(selectSql);
-        // check if the cancellation operation is valid
-        if (!rs.first()) {
-            throw new IllegalArgumentException("invalid cancellation: transaction_id is not existed!");
-        }
-        rs.beforeFirst();
+        Statement st = c.createStatement();
+        ResultSet rs = st.executeQuery(selectSql);
         while (rs.next()) {
-            int transaction_id = rs.getInt("ORDERS.TRANSACTION_ID");
-            String status = rs.getString("ORDERS.STATUS");
-            int id = rs.getInt("ORDERS.ID");
+            int transaction_id = rs.getInt("O_T_ID");
+            String status = rs.getString("O_STATUS");
+            int id = rs.getInt("O_ID");
             //String accountId = rs.getString("ACCOUNT.ID");
-            double balance = rs.getDouble("ACCOUNT.BALANCE");
-            double positionAmount = rs.getDouble("POSITION.AMOUNT");
-            double ordersAmount = rs.getDouble("ORDERS.AMOUNT");
-            String symbol = rs.getString("ORDERS.SYMBOL");
-            double price = rs.getDouble("ORDERS.PRICE");
-            Timestamp time = rs.getTimestamp("ORDERS.TIME");
+            double balance = rs.getDouble("A_BALANCE");
+            double positionAmount = rs.getDouble("P_AMOUNT");
+            double ordersAmount = rs.getDouble("O_AMOUNT");
+            String symbol = rs.getString("O_SYMBOL");
+            double price = rs.getDouble("O_PRICE");
+            Timestamp time = rs.getTimestamp("O_TIME");
 
             if (rs.isFirst()) {
                 if (status != "'OPEN'") {
                     throw new IllegalArgumentException("invalid cancellation: no open orders in this transaction id!");
                 }
-                outputs.add(new Transaction(transaction_id, "'CANCELED'", ordersAmount, time, price));
+                outputs.add(new Transaction(transaction_id, "CANCELED", ordersAmount, time, price));
                 // in table 'orders': change status
                 String updateOrdersSql = "UPDATE ORDERS SET STATUS='CANCELED' WHERE ID=" + id + ";";
                 stmt.executeUpdate(updateOrdersSql);
                 // in table 'account' and 'position':
                 if (ordersAmount < 0) {
                     // if cancel a sell order: give back seller's shares
-                    String updatePositionSql = "UPDATE POSITION SET AMOUNT = " + (positionAmount + ordersAmount) +
+                    String updatePositionSql = "UPDATE POSITION SET AMOUNT = " + (positionAmount - ordersAmount) +
                             "WHERE SYMBOL='" + symbol + "' AND ACCOUNT_ID='"+ accountId +"';";
                     stmt.executeUpdate(updatePositionSql);
                 } else {

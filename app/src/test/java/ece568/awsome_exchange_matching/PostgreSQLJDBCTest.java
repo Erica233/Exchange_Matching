@@ -79,6 +79,9 @@ class PostgreSQLJDBCTest {
     @Test
     void queryTransaction() throws SQLException {
         postgreJDBC = createdb();
+        postgreJDBC.queryTransaction("1", "1");
+        postgreJDBC.queryTransaction("2", "2");
+        //postgreJDBC.populateOrder();
     }
 
     @Test
@@ -86,6 +89,10 @@ class PostgreSQLJDBCTest {
         postgreJDBC = createdb();
         //postgreJDBC.cancelTransaction("1", "99");
         //postgreJDBC.cancelTransaction("99", "1");
-        postgreJDBC.cancelTransaction("1", "1");
+        //postgreJDBC.cancelTransaction("1", "1");
+        //postgreJDBC.cancelTransaction("1", "1");
+        //postgreJDBC.cancelTransaction("2", "2");
+        postgreJDBC.populateOrder("7", "USD", "-400", "127");
+        postgreJDBC.cancelTransaction("7", "7");
     }
 }
