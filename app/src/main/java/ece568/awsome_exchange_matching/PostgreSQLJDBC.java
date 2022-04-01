@@ -389,7 +389,7 @@ public class PostgreSQLJDBC {
         }
     }
 
-    public ArrayList<Transaction> populateOrder(String accountId, String symbol, String amount, String limit) throws SQLException {
+    public int populateOrder(String accountId, String symbol, String amount, String limit) throws SQLException {
         System.out.println("in populatOrder() func:");
         c = DriverManager.getConnection(url, user, password);
         c.setAutoCommit(false);
@@ -418,11 +418,11 @@ public class PostgreSQLJDBC {
             //testHandleBuy(new_id, accountId, symbol, amount_double, limit_double);
         }
         System.out.println("output: symbol=" + symbol + ", amount_double=" + amount_double + ", limit_double=" + limit_double + ", new_id=" + new_id);
-        outputs.add(new Transaction(symbol, amount_double, limit_double, new_id));
+        //outputs.add(new Transaction(symbol, amount_double, limit_double, new_id));
         stmt.close();
         c.commit();
         c.close();
-        return outputs;
+        return new_id;
     }
 
     public ArrayList<Transaction> queryTransaction(String accountId, String trans_id) throws SQLException, ParseException {
@@ -495,7 +495,7 @@ public class PostgreSQLJDBC {
             Timestamp time = rs.getTimestamp("O_TIME");
 
             if (rs.isFirst()) {
-                if (status != "'OPEN'") {
+                if (!status.equals("OPEN")) {
                     throw new IllegalArgumentException("invalid cancellation: no open orders in this transaction id!");
                 }
                 outputs.add(new Transaction(transaction_id, "CANCELED", ordersAmount, time, price));
@@ -518,6 +518,8 @@ public class PostgreSQLJDBC {
                 outputs.add(new Transaction(transaction_id, status, ordersAmount, time, price));
             }
         }
+        rs.close();
+        st.close();
         c.commit();
         stmt.close();
         c.close();

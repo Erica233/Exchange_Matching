@@ -68,10 +68,10 @@ public class orderCreateHandler implements PostgresHandler{
     public String implementPSQL() {
         String output = null;
         try {
-            postgreJDBC.populateOrder(accountID,
+            transID =Integer.toString(postgreJDBC.populateOrder(accountID,
                     sym_name,
                     amount,
-                    limit);
+                    limit));
         }catch(Exception e){
             output = e.getMessage();
         }finally{

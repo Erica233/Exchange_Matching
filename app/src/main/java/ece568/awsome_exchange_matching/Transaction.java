@@ -1,10 +1,12 @@
 package ece568.awsome_exchange_matching;
 
 import java.sql.Timestamp;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class Transaction {
     private int transaction_id;
-    private Timestamp time;
+    private long time;
     private String symbol;
     private double amount;
     private String account_id;
@@ -24,7 +26,10 @@ public class Transaction {
         transaction_id = _transaction_id;
         status = _status;
         amount = _amount;
-        time = _time;
+        String time_string = _time.toString()+"+0400";
+        DateTimeFormatter dtf  = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSZ");
+        ZonedDateTime zdt  = ZonedDateTime.parse(time_string,dtf);
+        time = zdt.toInstant().toEpochMilli();
         price = _price;
     }
 

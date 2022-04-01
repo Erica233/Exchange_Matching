@@ -11,7 +11,7 @@ public class orderCancleHandler extends queryHandler{
     public String implementPSQL() {
         String output = null;
         try {
-            //transactions = postgreJDBC.cancelTransaction(this.transID);
+            transactions = postgreJDBC.cancelTransaction(accountID, this.transID);
         }catch(Exception e){
             output = e.getMessage();
         }finally{

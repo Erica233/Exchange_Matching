@@ -369,14 +369,14 @@ public class XML_handler implements Runnable{
                 case "canceled":
                     Element canceled_order = result_doc.createElement("canceled");
                     canceled_order.setAttribute("shares", Double.toString(t.getAmount()));
-                    canceled_order.setAttribute("time", t.getTime().toString());
+                    canceled_order.setAttribute("time", Long.toString(t.getTime()));
                     query_order.appendChild(canceled_order);
                     break;
                 case "executed":
                     Element executed_order = result_doc.createElement("executed");
                     executed_order.setAttribute("shares", Double.toString(t.getAmount()));
                     executed_order.setAttribute("price", Double.toString(t.getPrice()));
-                    executed_order.setAttribute("time", t.getTime().toString());
+                    executed_order.setAttribute("time", Long.toString(t.getTime()));
                     query_order.appendChild(executed_order);
                     break;
             }
