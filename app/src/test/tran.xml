@@ -37,3 +37,33 @@
 <transactions id="8">
     <order sym="USD" amount="550" limit="135"/>
 </transactions>
+
+
+
+
+error:
+
+<?xml version="1.0" encoding="UTF-8"?>
+<transactions id="99">
+    <order sym="USD" amount="-400" limit="124"/>
+</transactions>
+
+<?xml version="1.0" encoding="UTF-8"?>
+<transactions id="1">
+    <order sym="CNY" amount="-400" limit="124"/>
+</transactions>
+
+<?xml version="1.0" encoding="UTF-8"?>
+<transactions id="1">
+    <order sym="CNY" amount="400" limit="124"/>
+</transactions>
+
+<?xml version="1.0" encoding="UTF-8"?>
+<transactions id="1">
+    <order sym="CNY" amount="0" limit="124"/>
+</transactions>
+
+<?xml version="1.0" encoding="UTF-8"?>
+<transactions id="1">
+    <order sym="USD" amount="0" limit="124"/>
+</transactions>

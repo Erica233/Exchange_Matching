@@ -1,3 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <transactions id="1">
-    <cancel id="1">
+    <cancel id="1"/>
+</transactions>
+
+<?xml version="1.0" encoding="UTF-8"?>
+<transactions id="1">
+    <query id="1"/>
+</transactions>
+
+<?xml version="1.0" encoding="UTF-8"?>
+<transactions id="2">
+    <query id="2"/>
+</transactions>
+
+<?xml version="1.0" encoding="UTF-8"?>
+<transactions id="7">
+    <query id="7"/>
 </transactions>

@@ -449,10 +449,6 @@ public class PostgreSQLJDBC {
             System.out.println("trans_id=" + rs.getInt("TRANSACTION_ID") + ", status=" +
                     rs.getString("STATUS") + ", amount=" + rs.getDouble("AMOUNT") + ", time=" +
                     rs.getTimestamp("TIME") + ", price=" + rs.getDouble("PRICE"));
-            String time_string = rs.getTimestamp("TIME").toString()+"+0400";
-            DateTimeFormatter dtf  = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSZ");
-            ZonedDateTime     zdt  = ZonedDateTime.parse(time_string,dtf);
-            System.out.println(zdt.toInstant().toEpochMilli());
         }
         rs.close();
         stmt.close();

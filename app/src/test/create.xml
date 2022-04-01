@@ -19,3 +19,11 @@
         <account id="8">10000</account>
     </symbol>
 </create>
+
+<?xml version="1.0" encoding="UTF-8"?>
+<create>
+    <account id="1" balance="1000000"/>
+    <symbol sym="USD">
+        <account id="1">10000</account>
+    </symbol>
+</create>
