@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<create>
+    <account id="1" balance="1000000"/>
+    <account id="2" balance="1000000"/>
+    <account id="3" balance="1000000"/>
+    <account id="4" balance="1000000"/>
+    <account id="5" balance="1000000"/>
+    <account id="6" balance="1000000"/>
+    <account id="7" balance="1000000"/>
+    <account id="8" balance="1000000"/>
+    <account id="11" balance="1000000"/>
+    <account id="12" balance="1000000"/>
+    <account id="13" balance="1000000"/>
+    <account id="14" balance="1000000"/>
+    <account id="15" balance="1000000"/>
+    <account id="16" balance="1000000"/>
+    <account id="17" balance="1000000"/>
+    <account id="18" balance="1000000"/>
+    <account id="21" balance="1000000"/>
+    <account id="22" balance="1000000"/>
+    <account id="23" balance="1000000"/>
+    <account id="24" balance="1000000"/>
+    <account id="25" balance="1000000"/>
+    <account id="26" balance="1000000"/>
+    <account id="27" balance="1000000"/>
+    <account id="28" balance="1000000"/>
+    <account id="31" balance="1000000"/>
+    <account id="32" balance="1000000"/>
+    <account id="33" balance="1000000"/>
+    <account id="34" balance="1000000"/>
+    <account id="35" balance="1000000"/>
+    <account id="36" balance="1000000"/>
+    <account id="37" balance="1000000"/>
+    <account id="38" balance="1000000"/>
+    <account id="31" balance="1000000"/>
+    <account id="32" balance="1000000"/>
+    <account id="33" balance="1000000"/>
+    <account id="34" balance="1000000"/>
+    <account id="35" balance="1000000"/>
+    <account id="36" balance="1000000"/>
+    <account id="37" balance="1000000"/>
+    <account id="38" balance="1000000"/>
+    <symbol sym="USD">
+        <account id="1">10000</account>
+        <account id="2">10000</account>
+        <account id="3">10000</account>
+        <account id="4">10000</account>
+        <account id="5">10000</account>
+        <account id="6">10000</account>
+        <account id="7">10000</account>
+        <account id="8">10000</account>
+        <account id="11">10000</account>
+        <account id="12">10000</account>
+        <account id="13">10000</account>
+        <account id="14">10000</account>
+        <account id="15">10000</account>
+        <account id="16">10000</account>
+        <account id="17">10000</account>
+        <account id="18">10000</account>
+        <account id="21">10000</account>
+        <account id="22">10000</account>
+        <account id="23">10000</account>
+        <account id="24">10000</account>
+        <account id="25">10000</account>
+        <account id="26">10000</account>
+        <account id="27">10000</account>
+        <account id="28">10000</account>
+        <account id="31">10000</account>
+        <account id="32">10000</account>
+        <account id="33">10000</account>
+        <account id="34">10000</account>
+        <account id="35">10000</account>
+        <account id="36">10000</account>
+        <account id="37">10000</account>
+        <account id="38">10000</account>
+        <account id="31">10000</account>
+        <account id="32">10000</account>
+        <account id="33">10000</account>
+        <account id="34">10000</account>
+        <account id="35">10000</account>
+        <account id="36">10000</account>
+        <account id="37">10000</account>
+        <account id="38">10000</account>
+    </symbol>
+    <symbol sym="JPY">
+        <account id="1">10000</account>
+        <account id="2">10000</account>
+        <account id="3">10000</account>
+        <account id="4">10000</account>
+        <account id="5">10000</account>
+        <account id="6">10000</account>
+        <account id="7">10000</account>
+        <account id="8">10000</account>
+        <account id="11">10000</account>
+        <account id="12">10000</account>
+        <account id="13">10000</account>
+        <account id="14">10000</account>
+        <account id="15">10000</account>
+        <account id="16">10000</account>
+        <account id="17">10000</account>
+        <account id="18">10000</account>
+        <account id="21">10000</account>
+        <account id="22">10000</account>
+        <account id="23">10000</account>
+        <account id="24">10000</account>
+        <account id="25">10000</account>
+        <account id="26">10000</account>
+        <account id="27">10000</account>
+        <account id="28">10000</account>
+        <account id="31">10000</account>
+        <account id="32">10000</account>
+        <account id="33">10000</account>
+        <account id="34">10000</account>
+        <account id="35">10000</account>
+        <account id="36">10000</account>
+        <account id="37">10000</account>
+        <account id="38">10000</account>
+        <account id="31">10000</account>
+        <account id="32">10000</account>
+        <account id="33">10000</account>
+        <account id="34">10000</account>
+        <account id="35">10000</account>
+        <account id="36">10000</account>
+        <account id="37">10000</account>
+        <account id="38">10000</account>
+    </symbol>
+    <symbol sym="CNY">
+        <account id="1">10000</account>
+        <account id="2">10000</account>
+        <account id="3">10000</account>
+        <account id="4">10000</account>
+        <account id="5">10000</account>
+        <account id="6">10000</account>
+        <account id="7">10000</account>
+        <account id="8">10000</account>
+        <account id="11">10000</account>
+        <account id="12">10000</account>
+        <account id="13">10000</account>
+        <account id="14">10000</account>
+        <account id="15">10000</account>
+        <account id="16">10000</account>
+        <account id="17">10000</account>
+        <account id="18">10000</account>
+        <account id="21">10000</account>
+        <account id="22">10000</account>
+        <account id="23">10000</account>
+        <account id="24">10000</account>
+        <account id="25">10000</account>
+        <account id="26">10000</account>
+        <account id="27">10000</account>
+        <account id="28">10000</account>
+        <account id="31">10000</account>
+        <account id="32">10000</account>
+        <account id="33">10000</account>
+        <account id="34">10000</account>
+        <account id="35">10000</account>
+        <account id="36">10000</account>
+        <account id="37">10000</account>
+        <account id="38">10000</account>
+        <account id="31">10000</account>
+        <account id="32">10000</account>
+        <account id="33">10000</account>
+        <account id="34">10000</account>
+        <account id="35">10000</account>
+        <account id="36">10000</account>
+        <account id="37">10000</account>
+        <account id="38">10000</account>
+    </symbol>
+    <symbol sym="NTD">
+        <account id="1">10000</account>
+        <account id="2">10000</account>
+        <account id="3">10000</account>
+        <account id="4">10000</account>
+        <account id="5">10000</account>
+        <account id="6">10000</account>
+        <account id="7">10000</account>
+        <account id="8">10000</account>
+        <account id="11">10000</account>
+        <account id="12">10000</account>
+        <account id="13">10000</account>
+        <account id="14">10000</account>
+        <account id="15">10000</account>
+        <account id="16">10000</account>
+        <account id="17">10000</account>
+        <account id="18">10000</account>
+        <account id="21">10000</account>
+        <account id="22">10000</account>
+        <account id="23">10000</account>
+        <account id="24">10000</account>
+        <account id="25">10000</account>
+        <account id="26">10000</account>
+        <account id="27">10000</account>
+        <account id="28">10000</account>
+        <account id="31">10000</account>
+        <account id="32">10000</account>
+        <account id="33">10000</account>
+        <account id="34">10000</account>
+        <account id="35">10000</account>
+        <account id="36">10000</account>
+        <account id="37">10000</account>
+        <account id="38">10000</account>
+        <account id="31">10000</account>
+        <account id="32">10000</account>
+        <account id="33">10000</account>
+        <account id="34">10000</account>
+        <account id="35">10000</account>
+        <account id="36">10000</account>
+        <account id="37">10000</account>
+        <account id="38">10000</account>
+    </symbol>
+</create>
