@@ -1,0 +1,17 @@
+Postgres sometimes might have maximum limit of connections.
+Sometimes, the number of clients that connects to the database exceeds the threshold, that connection will be blocked.
+
+Exception:
+When handling xml inputs, if there are any contents which does not conform to xml format at the beginning or after xml part, our code would simply ignore them, and only handle xml part.
+
+Do operations to transactions using an unexisted account id will throw an exception.
+
+Create an existed account will throw an exception.
+
+Query a transaction that does not belong to the given account id will throw an exception.
+
+Query a non-existed transaction will throw an exception.
+
+Cancel a transaction that does not belong to the given account id will throw an exception.
+
+Cancel a non-existed transaction will throw an exception.
